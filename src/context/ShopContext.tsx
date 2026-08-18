@@ -230,7 +230,7 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
 
-    const newHash = formatRouteHash({
+    const newPath = formatRouteHash({
       view: currentView,
       product: selectedProduct,
       category: activeCategory,
@@ -238,13 +238,9 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       orderNumber: activeTrackedOrderNumber || undefined,
     });
 
-    const currentHash = window.location.hash || '';
-    if (currentHash !== newHash) {
-      if (window.history && window.history.pushState) {
-        window.history.pushState(null, '', newHash);
-      } else {
-        window.location.hash = newHash;
-      }
+    const currentPath = window.location.pathname + window.location.search;
+    if (currentPath !== newPath) {
+      window.history.pushState(null, '', newPath);
     }
 
     updateDocumentTitle(currentView, {
@@ -288,11 +284,9 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     window.addEventListener('popstate', handleUrlChange);
-    window.addEventListener('hashchange', handleUrlChange);
 
     return () => {
       window.removeEventListener('popstate', handleUrlChange);
-      window.removeEventListener('hashchange', handleUrlChange);
     };
   }, []);
 

@@ -20,15 +20,15 @@ export function slugify(text: string): string {
 }
 
 /**
- * Parses the current browser URL hash or search params into a structured RouteInfo object.
+ * Parses the current browser URL pathname into a structured RouteInfo object.
  */
 export function parseRouteFromLocation(): RouteInfo {
   if (typeof window === 'undefined') {
     return { view: 'home' };
   }
 
-  const hash = window.location.hash.replace(/^#\/?/, '').trim();
   const searchParams = new URLSearchParams(window.location.search);
+  const pathname = window.location.pathname.replace(/^\/+/, '').trim();
 
   // If search query in query string, handle it
   if (searchParams.get('q')) {
@@ -38,11 +38,11 @@ export function parseRouteFromLocation(): RouteInfo {
     };
   }
 
-  if (!hash || hash === '/' || hash === 'home') {
+  if (!pathname || pathname === '/' || pathname === 'home') {
     return { view: 'home' };
   }
 
-  const parts = hash.split('/').map(p => decodeURIComponent(p.trim())).filter(Boolean);
+  const parts = pathname.split('/').map(p => decodeURIComponent(p.trim())).filter(Boolean);
   const root = parts[0]?.toLowerCase();
 
   switch (root) {
@@ -105,7 +105,7 @@ export function parseRouteFromLocation(): RouteInfo {
 }
 
 /**
- * Builds the canonical hash URL string for a given state.
+ * Builds the canonical URL path string for a given state.
  */
 export function formatRouteHash(state: {
   view: PageView;
@@ -117,46 +117,46 @@ export function formatRouteHash(state: {
 }): string {
   switch (state.view) {
     case 'home':
-      return '#/home';
+      return '/';
 
     case 'category':
       if (state.searchQuery && state.searchQuery.trim()) {
-        return `#/search/${encodeURIComponent(state.searchQuery.trim())}`;
+        return `/search/${encodeURIComponent(state.searchQuery.trim())}`;
       }
       if (state.category && state.category !== 'All' && state.category !== 'Home') {
-        return `#/category/${encodeURIComponent(state.category)}`;
+        return `/category/${encodeURIComponent(state.category)}`;
       }
-      return '#/category/Dinnerware';
+      return '/category/Dinnerware';
 
     case 'product': {
       const prod = state.product || (state.productId ? PRODUCTS.find(p => p.id === state.productId) : null);
       if (prod) {
         const slug = slugify(prod.name);
-        return `#/product/${prod.id}/${slug}`;
+        return `/product/${prod.id}/${slug}`;
       }
-      return state.productId ? `#/product/${state.productId}` : '#/product/nest-dw-01';
+      return state.productId ? `/product/${state.productId}` : '/product/nest-dw-01';
     }
 
     case 'cart':
-      return '#/cart';
+      return '/cart';
 
     case 'wishlist':
-      return '#/wishlist';
+      return '/wishlist';
 
     case 'checkout':
-      return '#/checkout';
+      return '/checkout';
 
     case 'orders':
       if (state.orderNumber) {
-        return `#/orders/${encodeURIComponent(state.orderNumber)}`;
+        return `/orders/${encodeURIComponent(state.orderNumber)}`;
       }
-      return '#/orders';
+      return '/orders';
 
     case 'account':
-      return '#/account';
+      return '/account';
 
     default:
-      return '#/home';
+      return '/';
   }
 }
 

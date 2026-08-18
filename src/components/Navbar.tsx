@@ -78,7 +78,7 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <nav className="bg-white border-b border-[#EAE3DA] hidden lg:block relative z-10 shadow-xs">
+    <nav className="bg-white border-b border-[#EAE3DA] hidden lg:block relative z-30 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <ul className="flex items-center justify-center gap-1 xl:gap-3 py-1">
           {navItems.map((item) => {
@@ -114,7 +114,7 @@ export const Navbar: React.FC = () => {
 
                 {/* Dropdown Mega Menu */}
                 {item.subcategories && isHovered && (
-                  <div className="absolute left-1/2 -translate-x-1/2 top-full pt-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full pt-1 z-[100] animate-in fade-in slide-in-from-top-1 duration-150">
                     <div className="bg-white rounded-xl shadow-xl border border-[#EBE5DE] py-3 px-4 w-64">
                       <div className="text-[11px] font-bold uppercase tracking-wider text-[#A8988B] mb-2 px-2 flex items-center gap-1.5">
                         {item.icon}
