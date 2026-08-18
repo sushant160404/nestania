@@ -1,0 +1,6 @@
+{
+  "name": "Nestania Home & Living",
+  "description": "Full-stack luxury home decor and dining e-commerce store inspired by Nestania with curated tableware, serveware, drinkware, home decor, real-time cart, wishlist, orders, search, and checkout.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
