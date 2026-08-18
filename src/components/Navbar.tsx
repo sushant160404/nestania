@@ -78,7 +78,7 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <nav className="bg-white border-b border-[#EAE3DA] hidden lg:block relative z-30 shadow-xs">
+    <nav className="bg-white border-b border-[#EAE3DA] hidden md:block relative z-30 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <ul className="flex items-center justify-center gap-1 xl:gap-3 py-1">
           {navItems.map((item) => {

@@ -17,14 +17,25 @@ import { CheckoutPage } from './pages/CheckoutPage';
 import { OrderTrackingPage } from './pages/OrderTrackingPage';
 import { AccountPage } from './pages/AccountPage';
 
+// Admin Panel
+import AdminApp from './pages/admin/AdminApp';
+
 function MainApp() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { currentView, navigateTo } = useShop();
+
+  // Check if current URL is /admin
+  const isAdminRoute = window.location.pathname.startsWith('/admin');
 
   // Scroll to top on page view switch
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [currentView]);
+
+  // Show admin panel if route is /admin
+  if (isAdminRoute) {
+    return <AdminApp />;
+  }
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-[#2D2723] flex flex-col font-sans selection:bg-[#8A5A36] selection:text-white">
@@ -51,6 +62,19 @@ function MainApp() {
 
       {/* Global E-Commerce Footer */}
       <Footer />
+
+      {/* Admin Access Link (Hidden, for development) */}
+      {process.env.NODE_ENV === 'development' && (
+        <a
+          href="/admin"
+          className="fixed bottom-4 right-4 w-12 h-12 bg-[#8A5A36] hover:bg-[#6E4223] text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-50"
+          title="Admin Panel"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+          </svg>
+        </a>
+      )}
 
       {/* Mobile Responsive Navigation Drawer */}
       <MobileNavDrawer

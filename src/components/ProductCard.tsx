@@ -21,7 +21,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     : 0;
 
   return (
-    <div className="group relative bg-white rounded-2xl border border-[#ECE5DD] overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col">
+    <div className="group relative bg-white rounded-2xl border border-[#ECE5DD] overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col isolate">
       
       {/* Product Image Container */}
       <div className="relative aspect-square bg-[#F7F3EE] overflow-hidden">
@@ -68,7 +68,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </button>
 
         {/* Hover Quick Actions Overlay */}
-        <div className="absolute inset-x-3 bottom-3 flex items-center gap-2 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 z-10">
+        <div className="absolute inset-x-3 bottom-3 flex items-center gap-2 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 z-10 pointer-events-none group-hover:pointer-events-auto">
           <button
             onClick={() => setSelectedProduct(product)}
             className="flex-1 bg-white/95 hover:bg-white text-[#3D322B] text-xs font-semibold py-2.5 px-3 rounded-xl shadow-md backdrop-blur-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-[#E3DCCE]"
