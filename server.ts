@@ -1,8 +1,14 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
+import dotenv from 'dotenv';
+
+// Load .env before any other imports that need env vars
+dotenv.config();
+
 import { PRODUCTS, CATEGORIES, COUPONS } from './src/data/products.ts';
 import { Order, Review } from './src/types.ts';
+import { databaseService } from './src/services/DatabaseService.ts';
 
 // In-memory persistent stores for server session
 let ordersStore: Order[] = [
@@ -135,6 +141,14 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Test database connection
+  const dbConnected = await databaseService.testConnection();
+  if (dbConnected) {
+    console.log('✅ MySQL database connected');
+  } else {
+    console.warn('⚠️  MySQL not available - using in-memory storage');
+  }
+
   // API Routes
   app.get('/api/health', (req: Request, res: Response) => {
     res.json({ status: 'ok', serverTime: new Date().toISOString() });
@@ -240,8 +254,8 @@ async function startServer() {
   });
 
   // POST /api/orders
-  app.post('/api/orders', (req: Request, res: Response) => {
-    const { items, shippingAddress, paymentMethod, subtotal, discount, shipping, total, couponCode } = req.body;
+  app.post('/api/orders', async (req: Request, res: Response) => {
+    const { items, shippingAddress, paymentMethod, subtotal, discount, shipping, total, couponCode, userId } = req.body;
     if (!items || !items.length || !shippingAddress) {
       return res.status(400).json({ error: 'Incomplete order payload' });
     }
@@ -251,8 +265,7 @@ async function startServer() {
     const estDeliveryDate = new Date();
     estDeliveryDate.setDate(now.getDate() + 3);
 
-    const newOrder: Order = {
-      id: `ord-${Date.now()}`,
+    const newOrder: Omit<Order, 'id'> = {
       orderNumber: orderNum,
       date: now.toISOString().split('T')[0],
       status: 'confirmed',
@@ -305,17 +318,54 @@ async function startServer() {
       ],
     };
 
-    ordersStore.unshift(newOrder);
-    res.status(201).json(newOrder);
+    try {
+      // Save to MySQL
+      const createdOrder = await databaseService.createOrder(newOrder);
+      
+      // Also keep in memory for session (fallback)
+      ordersStore.unshift(createdOrder);
+      
+      res.status(201).json(createdOrder);
+    } catch (error) {
+      console.error('MySQL order creation failed, using in-memory:', error);
+      // Fallback to in-memory if Firebase fails
+      const fallbackOrder: Order = {
+        id: `ord-${Date.now()}`,
+        ...newOrder,
+      };
+      ordersStore.unshift(fallbackOrder);
+      res.status(201).json(fallbackOrder);
+    }
   });
 
   // GET /api/orders
-  app.get('/api/orders', (req: Request, res: Response) => {
+  app.get('/api/orders', async (req: Request, res: Response) => {
+    try {
+      // Try to fetch from MySQL first
+      const dbOrders = await databaseService.getAllOrders();
+      if (dbOrders.length > 0) {
+        return res.json(dbOrders);
+      }
+    } catch (error) {
+      console.error('MySQL fetch failed, using in-memory orders:', error);
+    }
+    // Fallback to in-memory
     res.json(ordersStore);
   });
 
   // GET /api/orders/:orderNumber
-  app.get('/api/orders/:orderNumber', (req: Request, res: Response) => {
+  app.get('/api/orders/:orderNumber', async (req: Request, res: Response) => {
+    try {
+      // Try MySQL first
+      const dbOrder = await databaseService.getOrderByNumber(req.params.orderNumber);
+      if (dbOrder) {
+        return res.json(dbOrder);
+      }
+    } catch (error) {
+      console.error('MySQL order fetch failed:', error);
+    }
+
+    // Fallback to in-memory
     const order = ordersStore.find(
       o => o.orderNumber.toLowerCase() === req.params.orderNumber.toLowerCase() || o.id === req.params.orderNumber
     );
@@ -346,29 +396,57 @@ async function startServer() {
   });
 
   // POST /api/newsletter
-  app.post('/api/newsletter', (req: Request, res: Response) => {
+  app.post('/api/newsletter', async (req: Request, res: Response) => {
     const { email } = req.body;
     if (!email || !email.includes('@')) {
       return res.status(400).json({ error: 'Valid email address required' });
     }
-    if (!newsletterSubscribers.includes(email.toLowerCase())) {
-      newsletterSubscribers.push(email.toLowerCase());
+
+    try {
+      // Check if already subscribed
+      const isSubscribed = await databaseService.isEmailSubscribed(email);
+      if (isSubscribed) {
+        return res.json({
+          success: true,
+          message: 'You are already subscribed! Use coupon NEST10 for 10% off.',
+          code: 'NEST10',
+        });
+      }
+
+      // Add to MySQL
+      await databaseService.addNewsletterSubscriber(email);
+      
+      // Also add to in-memory
+      if (!newsletterSubscribers.includes(email.toLowerCase())) {
+        newsletterSubscribers.push(email.toLowerCase());
+      }
+
+      res.json({
+        success: true,
+        message: 'Welcome to the Nestania Family! Use coupon NEST10 for 10% off your first order.',
+        code: 'NEST10',
+      });
+    } catch (error) {
+      console.error('MySQL newsletter subscription failed:', error);
+      // Fallback to in-memory
+      if (!newsletterSubscribers.includes(email.toLowerCase())) {
+        newsletterSubscribers.push(email.toLowerCase());
+      }
+      res.json({
+        success: true,
+        message: 'Welcome to the Nestania Family! Use coupon NEST10 for 10% off your first order.',
+        code: 'NEST10',
+      });
     }
-    res.json({
-      success: true,
-      message: 'Welcome to the Nestania Family! Use coupon NEST10 for 10% off your first order.',
-      code: 'NEST10',
-    });
   });
 
   // POST /api/reviews
-  app.post('/api/reviews', (req: Request, res: Response) => {
+  app.post('/api/reviews', async (req: Request, res: Response) => {
     const { productId, author, rating, title, comment } = req.body;
     if (!productId || !author || !rating || !comment) {
       return res.status(400).json({ error: 'Missing required review fields' });
     }
-    const newRev: Review = {
-      id: `rev-${Date.now()}`,
+    const newRev: Omit<Review, 'id'> = {
       productId,
       author,
       rating: Number(rating),
@@ -378,16 +456,30 @@ async function startServer() {
       verifiedPurchase: true,
       helpfulCount: 1,
     };
-    reviewsStore.unshift(newRev);
 
-    // Update product review count and rating
-    const prod = PRODUCTS.find(p => p.id === productId);
-    if (prod) {
-      prod.reviewsCount += 1;
-      prod.rating = Number(((prod.rating * (prod.reviewsCount - 1) + Number(rating)) / prod.reviewsCount).toFixed(1));
+    try {
+      // Save to MySQL
+      const createdReview = await databaseService.createReview(newRev);
+      reviewsStore.unshift(createdReview);
+
+      // Update product review count and rating
+      const prod = PRODUCTS.find(p => p.id === productId);
+      if (prod) {
+        prod.reviewsCount += 1;
+        prod.rating = Number(((prod.rating * (prod.reviewsCount - 1) + Number(rating)) / prod.reviewsCount).toFixed(1));
+      }
+
+      res.status(201).json(createdReview);
+    } catch (error) {
+      console.error('MySQL review creation failed:', error);
+      // Fallback to in-memory
+      const fallbackReview: Review = {
+        id: `rev-${Date.now()}`,
+        ...newRev,
+      };
+      reviewsStore.unshift(fallbackReview);
+      res.status(201).json(fallbackReview);
     }
-
-    res.status(201).json(newRev);
   });
 
   // Vite Middleware Setup
@@ -400,10 +492,21 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
+    // SPA fallback - serve index.html for all non-API routes
     app.get('*', (req: Request, res: Response) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
+  // Global error handler
+  app.use((err: any, req: Request, res: Response, next: any) => {
+    console.error('Server error:', err);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+  });
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Nestania Server running on http://localhost:${PORT}`);

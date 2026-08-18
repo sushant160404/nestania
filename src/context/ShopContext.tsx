@@ -527,7 +527,7 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         freeShippingThreshold: FREE_SHIPPING_MIN,
         amountNeededForFreeShipping,
         placeOrder,
-        setUser,
+        setUser: setUserState,
         showToast,
         dismissToast,
         trackOrderById,
