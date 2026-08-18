@@ -141,12 +141,15 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Wait a moment for MongoDB to initialize (it's async in constructor)
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
   // Test database connection
   const dbConnected = await databaseService.testConnection();
   if (dbConnected) {
-    console.log('✅ MySQL database connected');
+    console.log('✅ MongoDB Atlas connected successfully');
   } else {
-    console.warn('⚠️  MySQL not available - using in-memory storage');
+    console.warn('⚠️  MongoDB not available - using in-memory storage');
   }
 
   // API Routes
@@ -319,7 +322,7 @@ async function startServer() {
     };
 
     try {
-      // Save to MySQL
+      // Save to MongoDB
       const createdOrder = await databaseService.createOrder(newOrder);
       
       // Also keep in memory for session (fallback)
@@ -327,7 +330,7 @@ async function startServer() {
       
       res.status(201).json(createdOrder);
     } catch (error) {
-      console.error('MySQL order creation failed, using in-memory:', error);
+      console.error('MongoDB order creation failed, using in-memory:', error);
       // Fallback to in-memory if Firebase fails
       const fallbackOrder: Order = {
         id: `ord-${Date.now()}`,
@@ -341,13 +344,13 @@ async function startServer() {
   // GET /api/orders
   app.get('/api/orders', async (req: Request, res: Response) => {
     try {
-      // Try to fetch from MySQL first
+      // Try to fetch from MongoDB first
       const dbOrders = await databaseService.getAllOrders();
       if (dbOrders.length > 0) {
         return res.json(dbOrders);
       }
     } catch (error) {
-      console.error('MySQL fetch failed, using in-memory orders:', error);
+      console.error('MongoDB fetch failed, using in-memory orders:', error);
     }
     // Fallback to in-memory
     res.json(ordersStore);
@@ -356,13 +359,13 @@ async function startServer() {
   // GET /api/orders/:orderNumber
   app.get('/api/orders/:orderNumber', async (req: Request, res: Response) => {
     try {
-      // Try MySQL first
+      // Try MongoDB first
       const dbOrder = await databaseService.getOrderByNumber(req.params.orderNumber);
       if (dbOrder) {
         return res.json(dbOrder);
       }
     } catch (error) {
-      console.error('MySQL order fetch failed:', error);
+      console.error('MongoDB order fetch failed:', error);
     }
 
     // Fallback to in-memory
@@ -413,7 +416,7 @@ async function startServer() {
         });
       }
 
-      // Add to MySQL
+      // Add to MongoDB
       await databaseService.addNewsletterSubscriber(email);
       
       // Also add to in-memory
@@ -427,7 +430,7 @@ async function startServer() {
         code: 'NEST10',
       });
     } catch (error) {
-      console.error('MySQL newsletter subscription failed:', error);
+      console.error('MongoDB newsletter subscription failed:', error);
       // Fallback to in-memory
       if (!newsletterSubscribers.includes(email.toLowerCase())) {
         newsletterSubscribers.push(email.toLowerCase());
@@ -458,7 +461,7 @@ async function startServer() {
     };
 
     try {
-      // Save to MySQL
+      // Save to MongoDB
       const createdReview = await databaseService.createReview(newRev);
       reviewsStore.unshift(createdReview);
 
@@ -471,7 +474,7 @@ async function startServer() {
 
       res.status(201).json(createdReview);
     } catch (error) {
-      console.error('MySQL review creation failed:', error);
+      console.error('MongoDB review creation failed:', error);
       // Fallback to in-memory
       const fallbackReview: Review = {
         id: `rev-${Date.now()}`,

@@ -1,37 +1,79 @@
-import mysql from 'mysql2/promise';
+import { MongoClient, Db, Collection, ObjectId } from 'mongodb';
 import { Order, Product, User, Review } from '../types';
 
 export class DatabaseService {
-  private pool: mysql.Pool | null = null;
+  private client: MongoClient | null = null;
+  private db: Db | null = null;
   private enabled: boolean = false;
 
+  // Collections
+  private ordersCollection: Collection | null = null;
+  private usersCollection: Collection | null = null;
+  private reviewsCollection: Collection | null = null;
+  private newsletterCollection: Collection | null = null;
+  private productsCollection: Collection | null = null;
+
   constructor() {
-    this.initializePool();
+    this.initialize();
   }
 
-  private initializePool() {
+  private async initialize() {
     try {
-      const config = {
-        host: process.env.DB_HOST || 'localhost',
-        port: parseInt(process.env.DB_PORT || '3306'),
-        user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || '',
-        database: process.env.DB_NAME || 'nestania',
-        waitForConnections: true,
-        connectionLimit: 10,
-        queueLimit: 0
-      };
+      const uri = process.env.MONGODB_URI;
+      
+      if (!uri) {
+        console.warn('⚠️  MONGODB_URI not found - using in-memory storage');
+        return;
+      }
 
-      this.pool = mysql.createPool(config);
+      this.client = new MongoClient(uri);
+      await this.client.connect();
+      
+      this.db = this.client.db('nestania');
+      
+      // Initialize collections
+      this.ordersCollection = this.db.collection('orders');
+      this.usersCollection = this.db.collection('users');
+      this.reviewsCollection = this.db.collection('reviews');
+      this.newsletterCollection = this.db.collection('newsletter');
+      this.productsCollection = this.db.collection('products');
+      
+      // Create indexes
+      await this.createIndexes();
+      
       this.enabled = true;
-      console.log('✅ MySQL connection pool created');
+      console.log('✅ MongoDB Atlas connected');
     } catch (error) {
-      console.warn('MySQL initialization failed - using in-memory storage', error);
+      console.warn('⚠️  MongoDB initialization failed - using in-memory storage', error);
+    }
+  }
+
+  private async createIndexes() {
+    try {
+      if (!this.db) return;
+
+      // Orders indexes
+      await this.ordersCollection?.createIndex({ orderNumber: 1 }, { unique: true });
+      await this.ordersCollection?.createIndex({ userId: 1 });
+      await this.ordersCollection?.createIndex({ status: 1 });
+      await this.ordersCollection?.createIndex({ createdAt: -1 });
+
+      // Users indexes
+      await this.usersCollection?.createIndex({ email: 1 }, { unique: true });
+
+      // Reviews indexes
+      await this.reviewsCollection?.createIndex({ productId: 1 });
+      await this.reviewsCollection?.createIndex({ rating: 1 });
+
+      // Newsletter indexes
+      await this.newsletterCollection?.createIndex({ email: 1 }, { unique: true });
+    } catch (error) {
+      console.warn('Index creation warning:', error);
     }
   }
 
   private checkEnabled() {
-    if (!this.enabled || !this.pool) {
+    if (!this.enabled || !this.db) {
       throw new Error('Database not initialized');
     }
   }
@@ -39,7 +81,7 @@ export class DatabaseService {
   async testConnection(): Promise<boolean> {
     try {
       this.checkEnabled();
-      await this.pool!.query('SELECT 1');
+      await this.db!.admin().ping();
       return true;
     } catch (error) {
       console.error('Database connection test failed:', error);
@@ -52,31 +94,18 @@ export class DatabaseService {
   async createOrder(orderData: Omit<Order, 'id'>): Promise<Order> {
     try {
       this.checkEnabled();
-      const [result] = await this.pool!.query(
-        `INSERT INTO orders (orderNumber, date, status, items, shippingAddress, paymentMethod, 
-         paymentStatus, subtotal, discount, shipping, total, couponCode, estimatedDelivery, trackingSteps, userId)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          orderData.orderNumber,
-          orderData.date,
-          orderData.status,
-          JSON.stringify(orderData.items),
-          JSON.stringify(orderData.shippingAddress),
-          orderData.paymentMethod,
-          orderData.paymentStatus,
-          orderData.subtotal,
-          orderData.discount,
-          orderData.shipping,
-          orderData.total,
-          orderData.couponCode || null,
-          orderData.estimatedDelivery || null,
-          JSON.stringify(orderData.trackingSteps || []),
-          (orderData as any).userId || null
-        ]
-      );
-
-      const insertId = (result as any).insertId;
-      return { id: insertId.toString(), ...orderData };
+      const doc = {
+        ...orderData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      const result = await this.ordersCollection!.insertOne(doc);
+      
+      return {
+        id: result.insertedId.toString(),
+        ...orderData,
+      };
     } catch (error) {
       console.error('Error creating order:', error);
       throw error;
@@ -86,14 +115,10 @@ export class DatabaseService {
   async getOrderById(orderId: string): Promise<Order | null> {
     try {
       this.checkEnabled();
-      const [rows] = await this.pool!.query(
-        'SELECT * FROM orders WHERE id = ?',
-        [orderId]
-      );
-      const orders = rows as any[];
-      if (orders.length === 0) return null;
+      const doc = await this.ordersCollection!.findOne({ _id: new ObjectId(orderId) });
       
-      return this.parseOrder(orders[0]);
+      if (!doc) return null;
+      return this.parseOrder(doc);
     } catch (error) {
       console.error('Error getting order:', error);
       throw error;
@@ -103,14 +128,10 @@ export class DatabaseService {
   async getOrderByNumber(orderNumber: string): Promise<Order | null> {
     try {
       this.checkEnabled();
-      const [rows] = await this.pool!.query(
-        'SELECT * FROM orders WHERE orderNumber = ? LIMIT 1',
-        [orderNumber]
-      );
-      const orders = rows as any[];
-      if (orders.length === 0) return null;
+      const doc = await this.ordersCollection!.findOne({ orderNumber });
       
-      return this.parseOrder(orders[0]);
+      if (!doc) return null;
+      return this.parseOrder(doc);
     } catch (error) {
       console.error('Error getting order by number:', error);
       throw error;
@@ -120,11 +141,12 @@ export class DatabaseService {
   async getUserOrders(userId: string): Promise<Order[]> {
     try {
       this.checkEnabled();
-      const [rows] = await this.pool!.query(
-        'SELECT * FROM orders WHERE userId = ? ORDER BY createdAt DESC',
-        [userId]
-      );
-      return (rows as any[]).map(row => this.parseOrder(row));
+      const docs = await this.ordersCollection!
+        .find({ userId })
+        .sort({ createdAt: -1 })
+        .toArray();
+      
+      return docs.map(doc => this.parseOrder(doc));
     } catch (error) {
       console.error('Error getting user orders:', error);
       throw error;
@@ -134,10 +156,12 @@ export class DatabaseService {
   async getAllOrders(): Promise<Order[]> {
     try {
       this.checkEnabled();
-      const [rows] = await this.pool!.query(
-        'SELECT * FROM orders ORDER BY createdAt DESC'
-      );
-      return (rows as any[]).map(row => this.parseOrder(row));
+      const docs = await this.ordersCollection!
+        .find({})
+        .sort({ createdAt: -1 })
+        .toArray();
+      
+      return docs.map(doc => this.parseOrder(doc));
     } catch (error) {
       console.error('Error getting all orders:', error);
       throw error;
@@ -151,17 +175,19 @@ export class DatabaseService {
   ): Promise<void> {
     try {
       this.checkEnabled();
+      const update: any = {
+        status,
+        updatedAt: new Date(),
+      };
+
       if (trackingSteps) {
-        await this.pool!.query(
-          'UPDATE orders SET status = ?, trackingSteps = ?, updatedAt = NOW() WHERE id = ?',
-          [status, JSON.stringify(trackingSteps), orderId]
-        );
-      } else {
-        await this.pool!.query(
-          'UPDATE orders SET status = ?, updatedAt = NOW() WHERE id = ?',
-          [status, orderId]
-        );
+        update.trackingSteps = trackingSteps;
       }
+
+      await this.ordersCollection!.updateOne(
+        { _id: new ObjectId(orderId) },
+        { $set: update }
+      );
     } catch (error) {
       console.error('Error updating order status:', error);
       throw error;
@@ -173,17 +199,18 @@ export class DatabaseService {
   async createUser(userData: Omit<User, 'id'>): Promise<User> {
     try {
       this.checkEnabled();
-      const [result] = await this.pool!.query(
-        'INSERT INTO users (name, email, phone, addresses) VALUES (?, ?, ?, ?)',
-        [
-          userData.name,
-          userData.email,
-          userData.phone || null,
-          JSON.stringify(userData.addresses || [])
-        ]
-      );
-      const insertId = (result as any).insertId;
-      return { id: insertId.toString(), ...userData };
+      const doc = {
+        ...userData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      const result = await this.usersCollection!.insertOne(doc);
+      
+      return {
+        id: result.insertedId.toString(),
+        ...userData,
+      };
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
@@ -193,14 +220,10 @@ export class DatabaseService {
   async getUserById(userId: string): Promise<User | null> {
     try {
       this.checkEnabled();
-      const [rows] = await this.pool!.query(
-        'SELECT * FROM users WHERE id = ?',
-        [userId]
-      );
-      const users = rows as any[];
-      if (users.length === 0) return null;
+      const doc = await this.usersCollection!.findOne({ _id: new ObjectId(userId) });
       
-      return this.parseUser(users[0]);
+      if (!doc) return null;
+      return this.parseUser(doc);
     } catch (error) {
       console.error('Error getting user:', error);
       throw error;
@@ -210,14 +233,10 @@ export class DatabaseService {
   async getUserByEmail(email: string): Promise<User | null> {
     try {
       this.checkEnabled();
-      const [rows] = await this.pool!.query(
-        'SELECT * FROM users WHERE email = ? LIMIT 1',
-        [email]
-      );
-      const users = rows as any[];
-      if (users.length === 0) return null;
+      const doc = await this.usersCollection!.findOne({ email: email.toLowerCase() });
       
-      return this.parseUser(users[0]);
+      if (!doc) return null;
+      return this.parseUser(doc);
     } catch (error) {
       console.error('Error getting user by email:', error);
       throw error;
@@ -227,34 +246,15 @@ export class DatabaseService {
   async updateUser(userId: string, userData: Partial<User>): Promise<void> {
     try {
       this.checkEnabled();
-      const updates: string[] = [];
-      const values: any[] = [];
-
-      if (userData.name) {
-        updates.push('name = ?');
-        values.push(userData.name);
-      }
-      if (userData.email) {
-        updates.push('email = ?');
-        values.push(userData.email);
-      }
-      if (userData.phone) {
-        updates.push('phone = ?');
-        values.push(userData.phone);
-      }
-      if (userData.addresses) {
-        updates.push('addresses = ?');
-        values.push(JSON.stringify(userData.addresses));
-      }
-
-      if (updates.length > 0) {
-        updates.push('updatedAt = NOW()');
-        values.push(userId);
-        await this.pool!.query(
-          `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
-          values
-        );
-      }
+      await this.usersCollection!.updateOne(
+        { _id: new ObjectId(userId) },
+        { 
+          $set: { 
+            ...userData,
+            updatedAt: new Date()
+          } 
+        }
+      );
     } catch (error) {
       console.error('Error updating user:', error);
       throw error;
@@ -266,21 +266,17 @@ export class DatabaseService {
   async createReview(reviewData: Omit<Review, 'id'>): Promise<Review> {
     try {
       this.checkEnabled();
-      const [result] = await this.pool!.query(
-        'INSERT INTO reviews (productId, author, rating, date, title, comment, verifiedPurchase, helpfulCount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          reviewData.productId,
-          reviewData.author,
-          reviewData.rating,
-          reviewData.date,
-          reviewData.title || null,
-          reviewData.comment,
-          reviewData.verifiedPurchase ? 1 : 0,
-          reviewData.helpfulCount || 0
-        ]
-      );
-      const insertId = (result as any).insertId;
-      return { id: insertId.toString(), ...reviewData };
+      const doc = {
+        ...reviewData,
+        createdAt: new Date(),
+      };
+      
+      const result = await this.reviewsCollection!.insertOne(doc);
+      
+      return {
+        id: result.insertedId.toString(),
+        ...reviewData,
+      };
     } catch (error) {
       console.error('Error creating review:', error);
       throw error;
@@ -290,11 +286,12 @@ export class DatabaseService {
   async getProductReviews(productId: string): Promise<Review[]> {
     try {
       this.checkEnabled();
-      const [rows] = await this.pool!.query(
-        'SELECT * FROM reviews WHERE productId = ? ORDER BY createdAt DESC',
-        [productId]
-      );
-      return (rows as any[]).map(row => this.parseReview(row));
+      const docs = await this.reviewsCollection!
+        .find({ productId })
+        .sort({ createdAt: -1 })
+        .toArray();
+      
+      return docs.map(doc => this.parseReview(doc));
     } catch (error) {
       console.error('Error getting product reviews:', error);
       throw error;
@@ -304,9 +301,9 @@ export class DatabaseService {
   async updateReviewHelpfulCount(reviewId: string, count: number): Promise<void> {
     try {
       this.checkEnabled();
-      await this.pool!.query(
-        'UPDATE reviews SET helpfulCount = ? WHERE id = ?',
-        [count, reviewId]
+      await this.reviewsCollection!.updateOne(
+        { _id: new ObjectId(reviewId) },
+        { $set: { helpfulCount: count } }
       );
     } catch (error) {
       console.error('Error updating review helpful count:', error);
@@ -319,9 +316,15 @@ export class DatabaseService {
   async addNewsletterSubscriber(email: string): Promise<void> {
     try {
       this.checkEnabled();
-      await this.pool!.query(
-        'INSERT INTO newsletter (email) VALUES (?) ON DUPLICATE KEY UPDATE subscribedAt = NOW()',
-        [email.toLowerCase()]
+      await this.newsletterCollection!.updateOne(
+        { email: email.toLowerCase() },
+        { 
+          $set: { 
+            email: email.toLowerCase(),
+            subscribedAt: new Date()
+          } 
+        },
+        { upsert: true }
       );
     } catch (error) {
       console.error('Error adding newsletter subscriber:', error);
@@ -332,66 +335,119 @@ export class DatabaseService {
   async isEmailSubscribed(email: string): Promise<boolean> {
     try {
       this.checkEnabled();
-      const [rows] = await this.pool!.query(
-        'SELECT COUNT(*) as count FROM newsletter WHERE email = ?',
-        [email.toLowerCase()]
-      );
-      return (rows as any)[0].count > 0;
+      const doc = await this.newsletterCollection!.findOne({ 
+        email: email.toLowerCase() 
+      });
+      return doc !== null;
     } catch (error) {
       console.error('Error checking email subscription:', error);
       throw error;
     }
   }
 
+  // ==================== PRODUCTS (Optional) ====================
+
+  async syncProductToDatabase(product: Product): Promise<void> {
+    try {
+      this.checkEnabled();
+      await this.productsCollection!.updateOne(
+        { id: product.id },
+        { 
+          $set: { 
+            ...product,
+            updatedAt: new Date()
+          } 
+        },
+        { upsert: true }
+      );
+    } catch (error) {
+      console.error('Error syncing product:', error);
+      throw error;
+    }
+  }
+
+  async getProductById(productId: string): Promise<Product | null> {
+    try {
+      this.checkEnabled();
+      const doc = await this.productsCollection!.findOne({ id: productId });
+      
+      if (!doc) return null;
+      return doc as Product;
+    } catch (error) {
+      console.error('Error getting product:', error);
+      throw error;
+    }
+  }
+
+  async updateProductStock(productId: string, stockCount: number): Promise<void> {
+    try {
+      this.checkEnabled();
+      await this.productsCollection!.updateOne(
+        { id: productId },
+        { 
+          $set: { 
+            stockCount,
+            inStock: stockCount > 0,
+            updatedAt: new Date()
+          } 
+        }
+      );
+    } catch (error) {
+      console.error('Error updating product stock:', error);
+      throw error;
+    }
+  }
+
   // ==================== HELPER METHODS ====================
 
-  private parseOrder(row: any): Order {
+  private parseOrder(doc: any): Order {
     return {
-      id: row.id.toString(),
-      orderNumber: row.orderNumber,
-      date: row.date,
-      status: row.status,
-      items: JSON.parse(row.items),
-      shippingAddress: JSON.parse(row.shippingAddress),
-      paymentMethod: row.paymentMethod,
-      paymentStatus: row.paymentStatus,
-      subtotal: row.subtotal,
-      discount: row.discount,
-      shipping: row.shipping,
-      total: row.total,
-      couponCode: row.couponCode,
-      estimatedDelivery: row.estimatedDelivery,
-      trackingSteps: JSON.parse(row.trackingSteps || '[]'),
+      id: doc._id.toString(),
+      orderNumber: doc.orderNumber,
+      date: doc.date,
+      status: doc.status,
+      items: doc.items,
+      shippingAddress: doc.shippingAddress,
+      paymentMethod: doc.paymentMethod,
+      paymentStatus: doc.paymentStatus,
+      subtotal: doc.subtotal,
+      discount: doc.discount,
+      shipping: doc.shipping,
+      total: doc.total,
+      couponCode: doc.couponCode,
+      estimatedDelivery: doc.estimatedDelivery,
+      trackingSteps: doc.trackingSteps || [],
     };
   }
 
-  private parseUser(row: any): User {
+  private parseUser(doc: any): User {
     return {
-      id: row.id.toString(),
-      name: row.name,
-      email: row.email,
-      phone: row.phone,
-      addresses: JSON.parse(row.addresses || '[]'),
+      id: doc._id.toString(),
+      name: doc.name,
+      email: doc.email,
+      phone: doc.phone,
+      addresses: doc.addresses || [],
     };
   }
 
-  private parseReview(row: any): Review {
+  private parseReview(doc: any): Review {
     return {
-      id: row.id.toString(),
-      productId: row.productId,
-      author: row.author,
-      rating: row.rating,
-      date: row.date,
-      title: row.title,
-      comment: row.comment,
-      verifiedPurchase: row.verifiedPurchase === 1,
-      helpfulCount: row.helpfulCount,
+      id: doc._id.toString(),
+      productId: doc.productId,
+      author: doc.author,
+      rating: doc.rating,
+      date: doc.date,
+      title: doc.title,
+      comment: doc.comment,
+      verifiedPurchase: doc.verifiedPurchase,
+      helpfulCount: doc.helpfulCount,
     };
   }
 
   async close(): Promise<void> {
-    if (this.pool) {
-      await this.pool.end();
+    if (this.client) {
+      await this.client.close();
+      console.log('MongoDB connection closed');
     }
   }
 }
