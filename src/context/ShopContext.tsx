@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { Product, CartItem, User, Order, Coupon, Address, PageView } from '../types';
-import { PRODUCTS, COUPONS } from '../data/products';
+import { PRODUCTS } from '../data/products';
 import { parseRouteFromLocation, formatRouteHash, updateDocumentTitle } from '../utils/router';
+import { shopController } from '../controllers/ShopController';
 
 interface Toast {
   id: string;
@@ -101,69 +102,49 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const isPopStateSyncRef = useRef<boolean>(false);
 
   const [cart, setCart] = useState<CartItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('nestania_cart') || localStorage.getItem('nestasia_cart');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-      return [
-        { product: PRODUCTS[0], quantity: 1 },
-        { product: PRODUCTS[1], quantity: 1 },
-        { product: PRODUCTS.find(p => p.id === 'nest-dw-05') || PRODUCTS[4], quantity: 1 },
-        { product: PRODUCTS.find(p => p.id === 'nest-dw-08') || PRODUCTS[6], quantity: 1 },
-      ];
-    } catch {
-      return [
-        { product: PRODUCTS[0], quantity: 1 },
-        { product: PRODUCTS[1], quantity: 1 },
-        { product: PRODUCTS.find(p => p.id === 'nest-dw-05') || PRODUCTS[4], quantity: 1 },
-        { product: PRODUCTS.find(p => p.id === 'nest-dw-08') || PRODUCTS[6], quantity: 1 },
-      ];
-    }
+    const loaded = shopController.loadCart();
+    if (loaded.length > 0) return loaded;
+    
+    return [
+      { product: PRODUCTS[0], quantity: 1 },
+      { product: PRODUCTS[1], quantity: 1 },
+      { product: PRODUCTS.find(p => p.id === 'nest-dw-05') || PRODUCTS[4], quantity: 1 },
+      { product: PRODUCTS.find(p => p.id === 'nest-dw-08') || PRODUCTS[6], quantity: 1 },
+    ];
   });
 
   const [wishlist, setWishlist] = useState<Product[]>(() => {
-    try {
-      const saved = localStorage.getItem('nestania_wishlist') || localStorage.getItem('nestasia_wishlist');
-      return saved ? JSON.parse(saved) : [PRODUCTS[1], PRODUCTS[4]];
-    } catch {
-      return [PRODUCTS[1]];
-    }
+    const loaded = shopController.loadWishlist();
+    return loaded.length > 0 ? loaded : [PRODUCTS[1], PRODUCTS[4]];
   });
 
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const saved = localStorage.getItem('nestania_user') || localStorage.getItem('nestasia_user');
-      return saved ? JSON.parse(saved) : {
-        id: 'usr-1',
-        name: 'Sushant Namurte',
-        email: 'sushantnamurte1604@gmail.com',
-        phone: '+91 87654 32100',
-        addresses: [
-          {
-            fullName: 'Sushant Namurte',
-            phone: '+91 87654 32100',
-            street: '123, Triveni Nagar, Near ABC Chowk, Tathawade',
-            city: 'Pune',
-            state: 'Maharashtra',
-            pincode: '411033',
-            isDefault: true,
-          },
-          {
-            fullName: 'Office',
-            phone: '+91 98765 43210',
-            street: 'Gaffis Technologies Pvt. Ltd., Office No. 501, IT Park, Hinjewadi Phase 3',
-            city: 'Pune',
-            state: 'Maharashtra',
-            pincode: '411057',
-            isDefault: false,
-          }
-        ]
-      };
-    } catch {
-      return null;
-    }
+  const [user, setUserState] = useState<User | null>(() => {
+    return shopController.loadUser() || {
+      id: 'usr-1',
+      name: 'Sushant Namurte',
+      email: 'sushantnamurte1604@gmail.com',
+      phone: '+91 87654 32100',
+      addresses: [
+        {
+          fullName: 'Sushant Namurte',
+          phone: '+91 87654 32100',
+          street: '123, Triveni Nagar, Near ABC Chowk, Tathawade',
+          city: 'Pune',
+          state: 'Maharashtra',
+          pincode: '411033',
+          isDefault: true,
+        },
+        {
+          fullName: 'Office',
+          phone: '+91 98765 43210',
+          street: 'Gaffis Technologies Pvt. Ltd., Office No. 501, IT Park, Hinjewadi Phase 3',
+          city: 'Pune',
+          state: 'Maharashtra',
+          pincode: '411057',
+          isDefault: false,
+        }
+      ]
+    };
   });
 
   const [isCartOpen, setIsCartOpenState] = useState<boolean>(false);
@@ -171,7 +152,7 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isAuthOpen, setIsAuthOpenState] = useState<boolean>(false);
   const [isCheckoutOpen, setIsCheckoutOpenState] = useState<boolean>(false);
   const [isOrderTrackingOpen, setIsOrderTrackingOpenState] = useState<boolean>(false);
-  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(COUPONS[0]); // default welcome code NEST10
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [orders, setOrders] = useState<Order[]>([
     {
       id: 'ord-sample-1',
@@ -385,43 +366,14 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Sync to local storage
-  useEffect(() => {
-    try {
-      localStorage.setItem('nestania_cart', JSON.stringify(cart));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [cart]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('nestania_wishlist', JSON.stringify(wishlist));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [wishlist]);
-
-  useEffect(() => {
-    try {
-      if (user) localStorage.setItem('nestania_user', JSON.stringify(user));
-      else localStorage.removeItem('nestania_user');
-    } catch (e) {
-      console.error(e);
-    }
-  }, [user]);
-
   // Load orders on start
   useEffect(() => {
-    fetch('/api/orders')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setOrders(data);
-          if (data.length > 0) setRecentOrder(data[0]);
-        }
-      })
-      .catch(err => console.warn('Using client orders fallback', err));
+    shopController.fetchOrders().then(data => {
+      if (data.length > 0) {
+        setOrders(data);
+        setRecentOrder(data[0]);
+      }
+    });
   }, []);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
@@ -437,103 +389,58 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const addToCart = (product: Product, quantity = 1, color?: string) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
-      if (existing) {
-        return prev.map(item =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        );
-      }
-      return [...prev, { product, quantity, selectedColor: color }];
-    });
+    setCart(prev => shopController.addToCart(prev, product, quantity, color));
     showToast(`Added "${product.name}" to your shopping bag!`, 'success');
   };
 
   const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.product.id !== productId));
+    setCart(prev => shopController.removeFromCart(prev, productId));
     showToast('Item removed from cart', 'info');
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(productId);
-      return;
-    }
-    setCart(prev =>
-      prev.map(item =>
-        item.product.id === productId ? { ...item, quantity } : item
-      )
-    );
+    setCart(prev => shopController.updateCartQuantity(prev, productId, quantity));
   };
 
   const clearCart = () => {
-    setCart([]);
+    setCart(shopController.clearCart());
   };
 
   const toggleWishlist = (product: Product) => {
     setWishlist(prev => {
-      const exists = prev.some(p => p.id === product.id);
-      if (exists) {
-        showToast(`Removed "${product.name}" from Wishlist`, 'info');
-        return prev.filter(p => p.id !== product.id);
-      } else {
+      const result = shopController.toggleWishlist(prev, product);
+      if (result.added) {
         showToast(`Saved "${product.name}" to Wishlist ❤️`, 'success');
-        return [...prev, product];
+      } else {
+        showToast(`Removed "${product.name}" from Wishlist`, 'info');
       }
+      return result.wishlist;
     });
   };
 
   const isInWishlist = (productId: string) => {
-    return wishlist.some(p => p.id === productId);
+    return shopController.isInWishlist(wishlist, productId);
   };
 
   // Pricing calculations
-  const cartSubtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-
-  let discountAmount = 0;
-  if (appliedCoupon && cartSubtotal >= appliedCoupon.minOrder) {
-    const rawDiscount = Math.round((cartSubtotal * appliedCoupon.discountPercent) / 100);
-    discountAmount = appliedCoupon.maxDiscount ? Math.min(rawDiscount, appliedCoupon.maxDiscount) : rawDiscount;
-  }
-
-  const shippingFee = cartSubtotal >= FREE_SHIPPING_MIN || cartSubtotal === 0 ? 0 : 99;
-  const cartTotal = Math.max(0, cartSubtotal - discountAmount + shippingFee);
-  const amountNeededForFreeShipping = Math.max(0, FREE_SHIPPING_MIN - cartSubtotal);
+  const totals = shopController.calculateCartTotals(cart, appliedCoupon);
+  const cartSubtotal = totals.subtotal;
+  const discountAmount = totals.discount;
+  const shippingFee = totals.shipping;
+  const cartTotal = totals.total;
+  const amountNeededForFreeShipping = totals.amountNeededForFreeShipping;
 
   const applyCouponCode = async (code: string) => {
-    try {
-      const res = await fetch('/api/coupons/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, cartSubtotal }),
-      });
-      const data = await res.json();
-      if (data.valid && data.coupon) {
-        setAppliedCoupon(data.coupon);
-        showToast(data.message, 'success');
-        return { success: true, message: data.message };
-      } else {
-        showToast(data.message || 'Invalid coupon code', 'error');
-        return { success: false, message: data.message || 'Invalid coupon' };
-      }
-    } catch {
-      // Fallback local check
-      const found = COUPONS.find(c => c.code.toUpperCase() === code.toUpperCase().trim());
-      if (found) {
-        if (cartSubtotal >= found.minOrder) {
-          setAppliedCoupon(found);
-          showToast(`Coupon ${found.code} applied successfully!`, 'success');
-          return { success: true, message: `Applied ${found.code}` };
-        } else {
-          showToast(`Minimum order ₹${found.minOrder} required for this coupon`, 'error');
-          return { success: false, message: `Minimum ₹${found.minOrder} required` };
-        }
-      }
-      showToast('Coupon code not found', 'error');
-      return { success: false, message: 'Invalid code' };
+    const result = await shopController.validateCoupon(code, cartSubtotal);
+    
+    if (result.success && result.coupon) {
+      setAppliedCoupon(result.coupon);
+      showToast(result.message, 'success');
+      return { success: true, message: result.message };
     }
+    
+    showToast(result.message, 'error');
+    return { success: false, message: result.message };
   };
 
   const removeCoupon = () => {
@@ -542,76 +449,20 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const placeOrder = async (shippingAddress: Address, paymentMethod: 'upi' | 'card' | 'netbanking' | 'cod') => {
-    const orderPayload = {
-      items: cart.map(item => ({
-        product: item.product,
-        quantity: item.quantity,
-        price: item.product.price,
-      })),
+    const createdOrder = await shopController.placeOrder(
+      cart,
       shippingAddress,
       paymentMethod,
-      subtotal: cartSubtotal,
-      discount: discountAmount,
-      shipping: shippingFee,
-      total: cartTotal,
-      couponCode: appliedCoupon?.code,
-    };
+      { subtotal: cartSubtotal, discount: discountAmount, shipping: shippingFee, total: cartTotal },
+      appliedCoupon?.code
+    );
 
-    try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderPayload),
-      });
-      if (res.ok) {
-        const createdOrder: Order = await res.json();
-        setOrders(prev => [createdOrder, ...prev]);
-        setRecentOrder(createdOrder);
-        clearCart();
-        showToast(`Order #${createdOrder.orderNumber} placed successfully! 🎉`, 'success');
-        navigateTo('orders', { orderNumber: createdOrder.orderNumber });
-        return createdOrder;
-      }
-    } catch (e) {
-      console.warn('API error placing order, generating client fallback order', e);
-    }
-
-    // Client fallback order
-    const orderNum = `NST-2025-${Math.floor(10000 + Math.random() * 90000)}`;
-    const fallbackOrder: Order = {
-      id: `ord-${Date.now()}`,
-      orderNumber: orderNum,
-      date: new Date().toISOString().split('T')[0],
-      status: 'confirmed',
-      items: cart.map(item => ({
-        product: item.product,
-        quantity: item.quantity,
-        price: item.product.price,
-      })),
-      shippingAddress,
-      paymentMethod,
-      paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid',
-      subtotal: cartSubtotal,
-      discount: discountAmount,
-      shipping: shippingFee,
-      total: cartTotal,
-      couponCode: appliedCoupon?.code,
-      estimatedDelivery: '3 Days from today',
-      trackingSteps: [
-        { status: 'ordered', title: 'Order Placed', description: 'Payment confirmed & inventory reserved', timestamp: 'Just now', completed: true },
-        { status: 'confirmed', title: 'Quality Check & Studio Packing', description: 'Ceramics cushioned in eco-friendly bubble foam', timestamp: 'In progress', completed: true },
-        { status: 'shipped', title: 'Shipped with Express Fragile Logistics', description: 'Air express dispatch', timestamp: 'Tomorrow', completed: false },
-        { status: 'out_for_delivery', title: 'Out for Delivery', description: `Delivery to ${shippingAddress.city}`, timestamp: 'In 2 days', completed: false },
-        { status: 'delivered', title: 'Delivered', description: 'Safe arrival at doorstep', timestamp: 'In 3 days', completed: false },
-      ],
-    };
-
-    setOrders(prev => [fallbackOrder, ...prev]);
-    setRecentOrder(fallbackOrder);
+    setOrders(prev => [createdOrder, ...prev]);
+    setRecentOrder(createdOrder);
     clearCart();
-    showToast(`Order #${fallbackOrder.orderNumber} placed successfully! 🎉`, 'success');
-    navigateTo('orders', { orderNumber: fallbackOrder.orderNumber });
-    return fallbackOrder;
+    showToast(`Order #${createdOrder.orderNumber} placed successfully! 🎉`, 'success');
+    navigateTo('orders', { orderNumber: createdOrder.orderNumber });
+    return createdOrder;
   };
 
   const trackOrderById = async (orderNum: string): Promise<Order | null> => {
