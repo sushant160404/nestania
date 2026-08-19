@@ -38,14 +38,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   ];
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] flex">
-      {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-[#E3DCCE] transform transition-transform duration-200 ease-in-out ${
+    <div className="h-screen bg-[#FAF8F5] flex overflow-hidden">
+      {/* Sidebar — always fixed on left, full height */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-[#E3DCCE] flex flex-col transform transition-transform duration-200 ease-in-out ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}>
-        <div className="h-full flex flex-col">
           {/* Logo */}
-          <div className="p-6 border-b border-[#E3DCCE]">
+          <div className="p-6 border-b border-[#E3DCCE] shrink-0">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="font-serif text-2xl text-[#8A5A36]">nestania</h1>
@@ -60,13 +59,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
             </div>
           </div>
 
-          {/* Navigation */}
+          {/* Navigation — scrollable if needed */}
           <nav className="flex-1 p-4 overflow-y-auto">
             <ul className="space-y-1">
               {menuItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = currentPage === item.id;
-                
                 return (
                   <li key={item.id}>
                     <button
@@ -90,7 +88,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           </nav>
 
           {/* Logout */}
-          <div className="p-4 border-t border-[#E3DCCE]">
+          <div className="p-4 border-t border-[#E3DCCE] shrink-0">
             <button
               onClick={onLogout}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
@@ -99,7 +97,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               Logout
             </button>
           </div>
-        </div>
       </aside>
 
       {/* Mobile Overlay */}
@@ -110,10 +107,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         />
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Bar */}
-        <header className="bg-white border-b border-[#E3DCCE] px-4 lg:px-8 py-4">
+      {/* Main Content — offset by sidebar width on desktop */}
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
+        {/* Top Bar — sticky */}
+        <header className="sticky top-0 z-30 bg-white border-b border-[#E3DCCE] px-4 lg:px-8 py-4 shrink-0">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -125,7 +122,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
             <div className="flex-1 lg:flex-none" />
 
             <div className="flex items-center gap-4">
-              {/* Admin Profile */}
               <div className="flex items-center gap-3">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-medium text-[#2D2723]">Admin User</p>
@@ -139,7 +135,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           </div>
         </header>
 
-        {/* Page Content */}
+        {/* Page Content — only this scrolls */}
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
           {children}
         </main>

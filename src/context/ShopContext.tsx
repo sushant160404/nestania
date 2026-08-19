@@ -117,7 +117,6 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const loaded = shopController.loadWishlist();
     return loaded.length > 0 ? loaded : [PRODUCTS[1], PRODUCTS[4]];
   });
-
   const [user, setUserState] = useState<User | null>(() => {
     return shopController.loadUser() || {
       id: 'usr-1',
@@ -375,6 +374,33 @@ export const ShopProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     });
   }, []);
+
+  // Sync wishlist with DB — load on mount, save on every change
+  const wishlistSyncRef = useRef(false);
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`/api/wishlist/${user.id}`)
+      .then(r => r.json())
+      .then((products: Product[]) => {
+        if (Array.isArray(products) && products.length > 0) {
+          wishlistSyncRef.current = true;
+          setWishlist(products);
+        }
+      })
+      .catch(() => {/* keep localStorage fallback */});
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    // Skip the first sync triggered by the load above
+    if (wishlistSyncRef.current) { wishlistSyncRef.current = false; return; }
+    fetch(`/api/wishlist/${user.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ products: wishlist }),
+    }).catch(() => {/* silent — localStorage still has it */});
+    shopController.saveWishlist(wishlist);
+  }, [wishlist]);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;

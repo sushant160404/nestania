@@ -1,5 +1,5 @@
 import { MongoClient, Db, Collection, ObjectId } from 'mongodb';
-import { Order, Product, User, Review } from '../types';
+import { Order, Product, User, Review, WishlistItem } from '../types';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -13,6 +13,7 @@ export class DatabaseService {
   private reviewsCollection: Collection | null = null;
   private newsletterCollection: Collection | null = null;
   private productsCollection: Collection | null = null;
+  private wishlistCollection: Collection | null = null;
 
   constructor() {
     this.initialize();
@@ -33,6 +34,7 @@ export class DatabaseService {
       this.reviewsCollection    = this.db.collection('reviews');
       this.newsletterCollection = this.db.collection('newsletter');
       this.productsCollection   = this.db.collection('products');
+      this.wishlistCollection   = this.db.collection('wishlists');
       await this.createIndexes();
       this.enabled = true;
       console.log('✅ MongoDB Atlas connected');
@@ -50,6 +52,7 @@ export class DatabaseService {
       await this.usersCollection?.createIndex({ email: 1 }, { unique: true });
       await this.reviewsCollection?.createIndex({ productId: 1 });
       await this.newsletterCollection?.createIndex({ email: 1 }, { unique: true });
+      await this.wishlistCollection?.createIndex({ userId: 1 }, { unique: true });
     } catch (error) {
       console.warn('Index creation warning:', error);
     }
@@ -167,6 +170,23 @@ export class DatabaseService {
   async updateReviewHelpfulCount(reviewId: string, count: number): Promise<void> {
     this.checkEnabled();
     await this.reviewsCollection!.updateOne({ _id: new ObjectId(reviewId) }, { $set: { helpfulCount: count } });
+  }
+
+  // ── WISHLISTS ─────────────────────────────────────────────────────────────
+
+  async getWishlist(userId: string): Promise<Product[]> {
+    this.checkEnabled();
+    const doc = await this.wishlistCollection!.findOne({ userId });
+    return doc ? (doc.products as Product[]) : [];
+  }
+
+  async saveWishlist(userId: string, products: Product[]): Promise<void> {
+    this.checkEnabled();
+    await this.wishlistCollection!.updateOne(
+      { userId },
+      { $set: { userId, products, updatedAt: new Date() } },
+      { upsert: true }
+    );
   }
 
   // ── NEWSLETTER ────────────────────────────────────────────────────────────

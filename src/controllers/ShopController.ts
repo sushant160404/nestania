@@ -75,6 +75,10 @@ export class ShopController {
     return wishlistModel.loadWishlist();
   }
 
+  saveWishlist(wishlist: Product[]): void {
+    wishlistModel.saveWishlist(wishlist);
+  }
+
   toggleWishlist(wishlist: Product[], product: Product): { wishlist: Product[]; added: boolean } {
     const result = wishlistModel.toggleItem(wishlist, product);
     wishlistModel.saveWishlist(result.wishlist);
