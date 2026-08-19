@@ -19,23 +19,14 @@ export function slugify(text: string): string {
     .replace(/--+/g, '-');
 }
 
-/**
- * Parses the current browser URL pathname into a structured RouteInfo object.
- */
 export function parseRouteFromLocation(): RouteInfo {
-  if (typeof window === 'undefined') {
-    return { view: 'home' };
-  }
+  if (typeof window === 'undefined') return { view: 'home' };
 
   const searchParams = new URLSearchParams(window.location.search);
   const pathname = window.location.pathname.replace(/^\/+/, '').trim();
 
-  // If search query in query string, handle it
   if (searchParams.get('q')) {
-    return {
-      view: 'category',
-      searchQuery: searchParams.get('q') || '',
-    };
+    return { view: 'category', searchQuery: searchParams.get('q') || '' };
   }
 
   if (!pathname || pathname === '/' || pathname === 'home') {
@@ -48,65 +39,32 @@ export function parseRouteFromLocation(): RouteInfo {
   switch (root) {
     case 'home':
       return { view: 'home' };
-
-    case 'category': {
-      const categoryName = parts[1] || 'Dinnerware';
-      return {
-        view: 'category',
-        category: categoryName,
-      };
-    }
-
-    case 'product': {
-      const productId = parts[1];
-      return {
-        view: 'product',
-        productId,
-      };
-    }
-
+    case 'category':
+      return { view: 'category', category: parts[1] || 'Dinnerware' };
+    case 'product':
+      return { view: 'product', productId: parts[1] };
     case 'cart':
       return { view: 'cart' };
-
     case 'wishlist':
       return { view: 'wishlist' };
-
     case 'checkout':
       return { view: 'checkout' };
-
-    case 'orders': {
-      const orderNumber = parts[1];
-      return {
-        view: 'orders',
-        orderNumber,
-      };
-    }
-
+    case 'orders':
+      return { view: 'orders', orderNumber: parts[1] };
     case 'account':
       return { view: 'account' };
-
-    case 'search': {
-      const query = parts[1] || '';
-      return {
-        view: 'category',
-        searchQuery: query,
-      };
-    }
-
+    case 'contact':
+      return { view: 'contact' };
+    case 'search':
+      return { view: 'category', searchQuery: parts[1] || '' };
     default: {
-      // Check if root matches a known product ID
       const directProduct = PRODUCTS.find(p => p.id.toLowerCase() === root);
-      if (directProduct) {
-        return { view: 'product', productId: directProduct.id };
-      }
+      if (directProduct) return { view: 'product', productId: directProduct.id };
       return { view: 'home' };
     }
   }
 }
 
-/**
- * Builds the canonical URL path string for a given state.
- */
 export function formatRouteHash(state: {
   view: PageView;
   product?: Product | null;
@@ -118,51 +76,34 @@ export function formatRouteHash(state: {
   switch (state.view) {
     case 'home':
       return '/';
-
     case 'category':
-      if (state.searchQuery && state.searchQuery.trim()) {
-        return `/search/${encodeURIComponent(state.searchQuery.trim())}`;
-      }
+      if (state.searchQuery?.trim()) return `/search/${encodeURIComponent(state.searchQuery.trim())}`;
       if (state.category && state.category !== 'All' && state.category !== 'Home') {
         return `/category/${encodeURIComponent(state.category)}`;
       }
       return '/category/Dinnerware';
-
     case 'product': {
       const prod = state.product || (state.productId ? PRODUCTS.find(p => p.id === state.productId) : null);
-      if (prod) {
-        const slug = slugify(prod.name);
-        return `/product/${prod.id}/${slug}`;
-      }
+      if (prod) return `/product/${prod.id}/${slugify(prod.name)}`;
       return state.productId ? `/product/${state.productId}` : '/product/nest-dw-01';
     }
-
     case 'cart':
       return '/cart';
-
     case 'wishlist':
       return '/wishlist';
-
     case 'checkout':
       return '/checkout';
-
     case 'orders':
-      if (state.orderNumber) {
-        return `/orders/${encodeURIComponent(state.orderNumber)}`;
-      }
-      return '/orders';
-
+      return state.orderNumber ? `/orders/${encodeURIComponent(state.orderNumber)}` : '/orders';
     case 'account':
       return '/account';
-
+    case 'contact':
+      return '/contact';
     default:
       return '/';
   }
 }
 
-/**
- * Updates the document title based on the active page and parameters.
- */
 export function updateDocumentTitle(
   view: PageView,
   options?: {
@@ -175,54 +116,38 @@ export function updateDocumentTitle(
   }
 ) {
   if (typeof document === 'undefined') return;
-
   const brand = 'Nestania';
 
   switch (view) {
     case 'home':
-      document.title = `${brand} | Elevate Your Everyday Dining & Living`;
-      break;
-
+      document.title = `${brand} | Elevate Your Everyday Dining & Living`; break;
     case 'category':
-      if (options?.searchQuery) {
-        document.title = `Search: "${options.searchQuery}" | ${brand}`;
-      } else if (options?.category) {
-        document.title = `${options.category} Collection | ${brand}`;
-      } else {
-        document.title = `Dinnerware & Tableware | ${brand}`;
-      }
+      document.title = options?.searchQuery
+        ? `Search: "${options.searchQuery}" | ${brand}`
+        : options?.category
+        ? `${options.category} Collection | ${brand}`
+        : `Dinnerware & Tableware | ${brand}`;
       break;
-
     case 'product':
-      if (options?.product) {
-        document.title = `${options.product.name} ${options.product.subtitle || ''} | ${brand}`;
-      } else {
-        document.title = `Product Details | ${brand}`;
-      }
+      document.title = options?.product
+        ? `${options.product.name} ${options.product.subtitle || ''} | ${brand}`
+        : `Product Details | ${brand}`;
       break;
-
     case 'cart':
-      document.title = `Shopping Bag ${options?.cartCount ? `(${options.cartCount})` : ''} | ${brand}`;
-      break;
-
+      document.title = `Shopping Bag${options?.cartCount ? ` (${options.cartCount})` : ''} | ${brand}`; break;
     case 'wishlist':
-      document.title = `Wishlist ${options?.wishlistCount ? `(${options.wishlistCount})` : ''} | ${brand}`;
-      break;
-
+      document.title = `Wishlist${options?.wishlistCount ? ` (${options.wishlistCount})` : ''} | ${brand}`; break;
     case 'checkout':
-      document.title = `Secure Checkout | ${brand}`;
-      break;
-
+      document.title = `Secure Checkout | ${brand}`; break;
     case 'orders':
       document.title = options?.orderNumber
         ? `Track Order #${options.orderNumber} | ${brand}`
         : `Track Your Orders | ${brand}`;
       break;
-
     case 'account':
-      document.title = `My Account & Profile | ${brand}`;
-      break;
-
+      document.title = `My Account & Profile | ${brand}`; break;
+    case 'contact':
+      document.title = `Contact Us | ${brand}`; break;
     default:
       document.title = `${brand} | Luxury Tableware & Home Living`;
   }

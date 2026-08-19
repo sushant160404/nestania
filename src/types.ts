@@ -7,7 +7,8 @@ export type PageView =
   | 'checkout'
   | 'order-success'
   | 'orders'
-  | 'account';
+  | 'account'
+  | 'contact';
 
 export interface BoxItem {
   name: string;
@@ -92,12 +93,12 @@ export interface Review {
 export interface Address {
   fullName: string;
   phone: string;
-  street: string;
   apartment?: string;
   city: string;
   state: string;
   pincode: string;
   isDefault?: boolean;
+  street: string;
 }
 
 export interface OrderItem {

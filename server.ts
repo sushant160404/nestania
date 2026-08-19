@@ -28,8 +28,8 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Allow time for async MongoDB init
-  await new Promise(resolve => setTimeout(resolve, 1500));
+  // Wait for MongoDB to finish initializing
+  await databaseService.waitForInit();
 
   const dbConnected = await databaseService.testConnection();
   if (dbConnected) {
@@ -283,6 +283,44 @@ async function startServer() {
 
     await databaseService.addNewsletterSubscriber(email);
     res.json({ success: true, message: 'Welcome to the Nestania Family! Use coupon NEST10 for 10% off your first order.', code: 'NEST10' });
+  });
+
+  // ── Contact Messages ──────────────────────────────────────────────────────
+  app.post('/api/contact', async (req: Request, res: Response) => {
+    const { name, email, phone, subject, message } = req.body;
+    if (!name || !email || !message) {
+      return res.status(400).json({ error: 'Name, email, and message are required' });
+    }
+    if (!email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email address required' });
+    }
+    try {
+      const result = await databaseService.saveContactMessage({ name, email, phone: phone || '', subject: subject || 'General', message });
+      res.status(201).json({ success: true, id: result.id, message: "We've received your message and will reply within 24 hours." });
+    } catch (error) {
+      console.error('Contact save error:', error);
+      res.status(500).json({ error: 'Failed to save message. Please try again.' });
+    }
+  });
+
+  app.get('/api/contact', async (_req: Request, res: Response) => {
+    try {
+      const messages = await databaseService.getAllContactMessages();
+      res.json(messages);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch contact messages' });
+    }
+  });
+
+  app.patch('/api/contact/:id/status', async (req: Request, res: Response) => {
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ error: 'status required' });
+    try {
+      await databaseService.updateContactMessageStatus(req.params.id, status);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update status' });
+    }
   });
 
   // ── Reviews ───────────────────────────────────────────────────────────────

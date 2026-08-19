@@ -15,9 +15,16 @@ export class DatabaseService {
   private productsCollection: Collection | null = null;
   private wishlistCollection: Collection | null = null;
   private adminUsersCollection: Collection | null = null;
+  private contactMessagesCollection: Collection | null = null;
+
+  private initPromise: Promise<void> | null = null;
 
   constructor() {
-    this.initialize();
+    this.initPromise = this.initialize();
+  }
+
+  async waitForInit(): Promise<void> {
+    if (this.initPromise) await this.initPromise;
   }
 
   private async initialize() {
@@ -37,6 +44,7 @@ export class DatabaseService {
       this.productsCollection   = this.db.collection('products');
       this.wishlistCollection   = this.db.collection('wishlists');
       this.adminUsersCollection = this.db.collection('adminUsers');
+      this.contactMessagesCollection = this.db.collection('contactMessages');
       await this.createIndexes();
       this.enabled = true;
       console.log('✅ MongoDB Atlas connected');
@@ -56,6 +64,7 @@ export class DatabaseService {
       await this.newsletterCollection?.createIndex({ email: 1 }, { unique: true });
       await this.wishlistCollection?.createIndex({ userId: 1 }, { unique: true });
       await this.adminUsersCollection?.createIndex({ email: 1 }, { unique: true });
+      await this.contactMessagesCollection?.createIndex({ createdAt: -1 });
     } catch (error) {
       console.warn('Index creation warning:', error);
     }
@@ -166,48 +175,6 @@ export class DatabaseService {
       const doc = await this.usersCollection!.findOne({ email: email.toLowerCase() });
       if (!doc) return { valid: false };
       // In production: use bcrypt.compare(password, doc.password)
-      if ((doc as any).password === password) {
-        return { valid: true, user: this.parseUser(doc) };
-      }
-      return { valid: false };
-    } catch (error) {
-      return { valid: false };
-    }
-  }
-
-  async registerUser(email: string, password: string, name: string, phone?: string): Promise<User> {
-    this.checkEnabled();
-    const existingUser = await this.usersCollection!.findOne({ email: email.toLowerCase() });
-    if (existingUser) {
-      throw new Error('Email already registered');
-    }
-
-    const userData = {
-      email: email.toLowerCase(),
-      password, // In production: use bcrypt.hash(password, 10)
-      name,
-      phone: phone || '',
-      addresses: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    const result = await this.usersCollection!.insertOne(userData);
-    return {
-      id: result.insertedId.toString(),
-      email: userData.email,
-      name: userData.name,
-      phone: userData.phone,
-      addresses: userData.addresses,
-    };
-  }
-
-  async validateUserLogin(email: string, password: string): Promise<{ valid: boolean; user?: User }> {
-    try {
-      this.checkEnabled();
-      const doc = await this.usersCollection!.findOne({ email: email.toLowerCase() });
-      if (!doc) return { valid: false };
-      // In production: use bcrypt.compare(password, doc.password)
       if (doc.password === password) {
         return { valid: true, user: this.parseUser(doc) };
       }
@@ -240,14 +207,6 @@ export class DatabaseService {
       phone: phone || '',
       addresses: [],
     };
-  }
-
-  async updateUser(userId: string, userData: Partial<User>): Promise<void> {
-    this.checkEnabled();
-    await this.usersCollection!.updateOne(
-      { _id: new ObjectId(userId) },
-      { $set: { ...userData, updatedAt: new Date() } }
-    );
   }
 
   // ── REVIEWS ───────────────────────────────────────────────────────────────
@@ -356,6 +315,42 @@ export class DatabaseService {
     await this.productsCollection!.updateOne(
       { id: productId },
       { $set: { stockCount, inStock: stockCount > 0, updatedAt: new Date() } }
+    );
+  }
+
+  // ── CONTACT MESSAGES ─────────────────────────────────────────────────────
+
+  async saveContactMessage(data: {
+    name: string;
+    email: string;
+    phone: string;
+    subject: string;
+    message: string;
+  }): Promise<{ id: string }> {
+    this.checkEnabled();
+    const result = await this.contactMessagesCollection!.insertOne({
+      ...data,
+      status: 'unread',
+      createdAt: new Date(),
+    });
+    return { id: result.insertedId.toString() };
+  }
+
+  async getAllContactMessages(): Promise<any[]> {
+    this.checkEnabled();
+    const docs = await this.contactMessagesCollection!.find({}).sort({ createdAt: -1 }).toArray();
+    return docs.map(d => ({ id: d._id.toString(), ...d, _id: undefined }));
+  }
+
+  async getContactMessagesCount(): Promise<number> {
+    try { this.checkEnabled(); return await this.contactMessagesCollection!.countDocuments(); } catch { return 0; }
+  }
+
+  async updateContactMessageStatus(id: string, status: string): Promise<void> {
+    this.checkEnabled();
+    await this.contactMessagesCollection!.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { status, updatedAt: new Date() } }
     );
   }
 

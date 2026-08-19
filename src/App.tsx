@@ -16,6 +16,7 @@ import { WishlistPage } from './pages/WishlistPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { OrderTrackingPage } from './pages/OrderTrackingPage';
 import { AccountPage } from './pages/AccountPage';
+import { ContactPage } from './pages/ContactPage';
 
 // Admin Panel
 import AdminApp from './pages/admin/AdminApp';
@@ -32,13 +33,15 @@ function MainApp() {
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-[#2D2723] flex flex-col font-sans selection:bg-[#8A5A36] selection:text-white">
       {/* Top Announcement Strip */}
-      <AnnouncementBar />
+      <div className="sticky top-0 z-30 flex flex-col">
+        <AnnouncementBar />
 
-      {/* Main Header with Search & Navigation */}
-      <Header onOpenMobileNav={() => setMobileNavOpen(true)} />
+        {/* Main Header with Search & Navigation */}
+        <Header onOpenMobileNav={() => setMobileNavOpen(true)} />
 
-      {/* Categories Navigation Bar */}
-      <Navbar />
+        {/* Categories Navigation Bar */}
+        <Navbar />
+      </div>
 
       {/* Dedicated Full Page Routing (No Popup Pages) */}
       <main className="flex-1">
@@ -50,6 +53,7 @@ function MainApp() {
         {currentView === 'checkout' && <CheckoutPage />}
         {currentView === 'orders' && <OrderTrackingPage />}
         {currentView === 'account' && <AccountPage />}
+        {currentView === 'contact' && <ContactPage />}
       </main>
 
       {/* Global E-Commerce Footer */}

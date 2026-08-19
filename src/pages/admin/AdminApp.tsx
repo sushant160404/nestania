@@ -3,6 +3,7 @@ import { LoginPage } from './LoginPage';
 import { AdminLayout } from './AdminLayout';
 import { DashboardPage } from './DashboardPage';
 import { OrdersManagementPage } from './OrdersManagementPage';
+import { ContactMessagesPage } from './ContactMessagesPage';
 
 export const AdminApp: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -53,6 +54,8 @@ export const AdminApp: React.FC = () => {
         return <DashboardPage />;
       case 'orders':
         return <OrdersManagementPage />;
+      case 'contacts':
+        return <ContactMessagesPage />;
       case 'products':
         return <div className="text-center py-12 text-[#7A6A5E]">Products Management - Coming Soon</div>;
       case 'customers':

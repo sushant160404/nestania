@@ -9,7 +9,8 @@ import {
   Menu,
   X,
   BarChart3,
-  Star
+  Star,
+  MessageSquare
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -33,6 +34,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     { id: 'products', label: 'Products', icon: Package },
     { id: 'customers', label: 'Customers', icon: Users },
     { id: 'reviews', label: 'Reviews', icon: Star },
+    { id: 'contacts', label: 'Contact Messages', icon: MessageSquare },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];

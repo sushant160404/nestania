@@ -106,8 +106,15 @@ export const Footer: React.FC = () => {
               Help
             </h4>
             <ul className="space-y-2 text-xs sm:text-[13px] text-[#6E5D53]">
+              <li>
+                <button
+                  onClick={() => navigateTo('contact')}
+                  className="hover:text-[#8A5A36] hover:underline transition-colors text-left cursor-pointer"
+                >
+                  Contact Us
+                </button>
+              </li>
               {[
-                'Contact Us',
                 'FAQs',
                 'Shipping Policy',
                 'Returns & Refunds',
