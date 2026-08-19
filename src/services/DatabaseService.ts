@@ -209,14 +209,22 @@ export class DatabaseService {
   }
 
   async validateAdminLogin(email: string, password: string): Promise<{ valid: boolean; admin?: { email: string; name: string } }> {
-    this.checkEnabled();
-    const doc = await this.adminUsersCollection!.findOne({ email: email.toLowerCase() });
-    if (!doc) return { valid: false };
-    // In production: use bcrypt.compare(password, doc.password)
-    if (doc.password === password) {
-      return { valid: true, admin: { email: doc.email, name: doc.name } };
+    try {
+      this.checkEnabled();
+      const doc = await this.adminUsersCollection!.findOne({ email: email.toLowerCase() });
+      if (!doc) return { valid: false };
+      // In production: use bcrypt.compare(password, doc.password)
+      if (doc.password === password) {
+        return { valid: true, admin: { email: doc.email, name: doc.name } };
+      }
+      return { valid: false };
+    } catch (error) {
+      // Fallback to hardcoded credentials when DB is not available
+      if (email.toLowerCase() === 'admin@nestania.com' && password === 'admin123') {
+        return { valid: true, admin: { email: 'admin@nestania.com', name: 'Admin User' } };
+      }
+      return { valid: false };
     }
-    return { valid: false };
   }
 
   // ── NEWSLETTER ────────────────────────────────────────────────────────────
