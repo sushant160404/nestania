@@ -134,11 +134,18 @@ export class DatabaseService {
     return docs.map(d => this.parseOrder(d));
   }
 
-  async updateOrderStatus(orderId: string, status: Order['status'], trackingSteps?: Order['trackingSteps']): Promise<void> {
+  async updateOrderStatus(orderId: string, status: Order['status'], trackingSteps?: Order['trackingSteps']): Promise<Order | null> {
     this.checkEnabled();
     const update: any = { status, updatedAt: new Date() };
     if (trackingSteps) update.trackingSteps = trackingSteps;
-    await this.ordersCollection!.updateOne({ _id: new ObjectId(orderId) }, { $set: update });
+    
+    const result = await this.ordersCollection!.findOneAndUpdate(
+      { _id: new ObjectId(orderId) }, 
+      { $set: update },
+      { returnDocument: 'after' }
+    );
+    
+    return result ? this.parseOrder(result) : null;
   }
 
   // ── USERS ─────────────────────────────────────────────────────────────────

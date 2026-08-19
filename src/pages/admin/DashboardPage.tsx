@@ -24,7 +24,11 @@ interface DashboardStats {
   pendingChange: number;
 }
 
-export const DashboardPage: React.FC = () => {
+interface DashboardPageProps {
+  onNavigate?: (page: string) => void;
+}
+
+export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   const [stats, setStats] = useState<DashboardStats>({
     totalRevenue: 0,
     revenueChange: 0,
@@ -205,17 +209,26 @@ export const DashboardPage: React.FC = () => {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl border border-[#E3DCCE] p-6 hover:shadow-md transition-shadow cursor-pointer">
+        <div 
+          onClick={() => onNavigate?.('products')}
+          className="bg-white rounded-xl border border-[#E3DCCE] p-6 hover:shadow-md transition-shadow cursor-pointer"
+        >
           <Package className="w-8 h-8 text-[#8A5A36] mb-3" />
           <h3 className="font-semibold text-[#2D2723] mb-1">Manage Products</h3>
           <p className="text-sm text-[#7A6A5E]">Add, edit, or remove products</p>
         </div>
-        <div className="bg-white rounded-xl border border-[#E3DCCE] p-6 hover:shadow-md transition-shadow cursor-pointer">
+        <div 
+          onClick={() => onNavigate?.('orders')}
+          className="bg-white rounded-xl border border-[#E3DCCE] p-6 hover:shadow-md transition-shadow cursor-pointer"
+        >
           <ShoppingBag className="w-8 h-8 text-[#8A5A36] mb-3" />
           <h3 className="font-semibold text-[#2D2723] mb-1">Process Orders</h3>
           <p className="text-sm text-[#7A6A5E]">View and update order status</p>
         </div>
-        <div className="bg-white rounded-xl border border-[#E3DCCE] p-6 hover:shadow-md transition-shadow cursor-pointer">
+        <div 
+          onClick={() => onNavigate?.('analytics')}
+          className="bg-white rounded-xl border border-[#E3DCCE] p-6 hover:shadow-md transition-shadow cursor-pointer"
+        >
           <BarChart3 className="w-8 h-8 text-[#8A5A36] mb-3" />
           <h3 className="font-semibold text-[#2D2723] mb-1">View Analytics</h3>
           <p className="text-sm text-[#7A6A5E]">Track sales and performance</p>

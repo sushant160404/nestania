@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { PRODUCTS, CATEGORIES, COUPONS } from './src/data/products.ts';
-import { Order, Review } from './src/types.ts';
+import { Order, Review, Product } from './src/types.ts';
 import { databaseService } from './src/services/DatabaseService.ts';
 
 // ── Seed function ─────────────────────────────────────────────────────────────
@@ -151,6 +151,73 @@ async function startServer() {
     const order = await databaseService.getOrderByNumber(req.params.orderNumber);
     if (!order) return res.status(404).json({ error: 'Order not found' });
     res.json(order);
+  });
+
+  // ── Admin Dashboard Stats ──────────────────────────────────────────────────
+  app.get('/api/admin/dashboard/stats', async (_req: Request, res: Response) => {
+    try {
+      const orders = await databaseService.getAllOrders();
+      const contacts = await databaseService.getAllContactMessages();
+
+      // Calculate stats from real data
+      const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+      const totalOrders = orders.length;
+      const totalCustomers = new Set(orders.map(o => o.shippingAddress?.email).filter(Boolean)).size;
+      const pendingOrders = orders.filter(o => 
+        o.status === 'confirmed' || o.status === 'processing'
+      ).length;
+
+      // Calculate trends (simplified - comparing last 30 days vs previous 30)
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+      const recentOrders = orders.filter(o => new Date(o.date) >= thirtyDaysAgo);
+      const previousOrders = orders.filter(o => {
+        const orderDate = new Date(o.date);
+        return orderDate >= sixtyDaysAgo && orderDate < thirtyDaysAgo;
+      });
+
+      const recentRevenue = recentOrders.reduce((sum, o) => sum + o.total, 0);
+      const previousRevenue = previousOrders.reduce((sum, o) => sum + o.total, 0);
+
+      const revenueChange = previousRevenue > 0 
+        ? ((recentRevenue - previousRevenue) / previousRevenue) * 100 
+        : 0;
+
+      const ordersChange = previousOrders.length > 0 
+        ? ((recentOrders.length - previousOrders.length) / previousOrders.length) * 100 
+        : 0;
+
+      res.json({
+        totalRevenue,
+        revenueChange: Math.round(revenueChange * 10) / 10,
+        totalOrders,
+        ordersChange: Math.round(ordersChange * 10) / 10,
+        totalCustomers,
+        customersChange: 5.4, // Keep as placeholder for now
+        pendingOrders,
+        pendingChange: -3.1,  // Keep as placeholder for now
+        recentOrders: orders.slice(0, 5),
+        unreadMessages: contacts.filter(c => c.status === 'unread').length
+      });
+    } catch (error) {
+      console.error('Dashboard stats error:', error);
+      res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+    }
+  });
+  app.patch('/api/admin/orders/:id/status', async (req: Request, res: Response) => {
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ error: 'Status required' });
+    
+    try {
+      const updatedOrder = await databaseService.updateOrderStatus(req.params.id, status);
+      if (!updatedOrder) return res.status(404).json({ error: 'Order not found' });
+      res.json(updatedOrder);
+    } catch (error) {
+      console.error('Order update error:', error);
+      res.status(500).json({ error: 'Failed to update order status' });
+    }
   });
 
   // ── Pincode ───────────────────────────────────────────────────────────────
@@ -351,6 +418,47 @@ async function startServer() {
     }
 
     res.status(201).json(createdReview);
+  });
+
+  // ── Admin Products CRUD ───────────────────────────────────────────────────
+
+  app.get('/api/admin/products', (_req: Request, res: Response) => {
+    res.json(PRODUCTS);
+  });
+
+  app.get('/api/admin/products/:id', (req: Request, res: Response) => {
+    const product = PRODUCTS.find(p => p.id === req.params.id);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    res.json(product);
+  });
+
+  app.post('/api/admin/products', (req: Request, res: Response) => {
+    const product: Product = req.body;
+    if (!product.name || !product.price || !product.category) {
+      return res.status(400).json({ error: 'name, price and category are required' });
+    }
+    if (!product.id) {
+      product.id = `prod-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    }
+    if (PRODUCTS.find(p => p.id === product.id)) {
+      return res.status(409).json({ error: 'Product with this ID already exists' });
+    }
+    PRODUCTS.push(product);
+    res.status(201).json(product);
+  });
+
+  app.put('/api/admin/products/:id', (req: Request, res: Response) => {
+    const idx = PRODUCTS.findIndex(p => p.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Product not found' });
+    PRODUCTS[idx] = { ...PRODUCTS[idx], ...req.body, id: req.params.id };
+    res.json(PRODUCTS[idx]);
+  });
+
+  app.delete('/api/admin/products/:id', (req: Request, res: Response) => {
+    const idx = PRODUCTS.findIndex(p => p.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Product not found' });
+    PRODUCTS.splice(idx, 1);
+    res.json({ success: true });
   });
 
   // ── Vite / Static ─────────────────────────────────────────────────────────
