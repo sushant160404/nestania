@@ -9,6 +9,19 @@ import { PRODUCTS, CATEGORIES, COUPONS } from './src/data/products.ts';
 import { Order, Review } from './src/types.ts';
 import { databaseService } from './src/services/DatabaseService.ts';
 
+// ── Seed function ─────────────────────────────────────────────────────────────
+async function seedDatabase() {
+  try {
+    const adminCount = await databaseService.getAdminUsersCount();
+    if (adminCount === 0) {
+      await databaseService.createAdminUser('admin@nestania.com', 'admin123', 'Admin User');
+      console.log('✅ Seeded default admin user (admin@nestania.com / admin123)');
+    }
+  } catch (error) {
+    console.error('Admin seed error:', error);
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -19,7 +32,12 @@ async function startServer() {
   await new Promise(resolve => setTimeout(resolve, 1500));
 
   const dbConnected = await databaseService.testConnection();
-  console.log(dbConnected ? '✅ MongoDB Atlas connected' : '⚠️  MongoDB unavailable - running with in-memory storage');
+  if (dbConnected) {
+    console.log('✅ MongoDB Atlas connected successfully');
+    await seedDatabase();
+  } else {
+    console.log('⚠️  MongoDB unavailable - running with in-memory storage');
+  }
 
   // ── Health ────────────────────────────────────────────────────────────────
   app.get('/api/health', (_req: Request, res: Response) => {
@@ -155,6 +173,24 @@ async function startServer() {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: 'Failed to save wishlist' });
+    }
+  });
+
+  // ── Admin Auth ────────────────────────────────────────────────────────────
+
+  app.post('/api/admin/login', async (req: Request, res: Response) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+
+    try {
+      const result = await databaseService.validateAdminLogin(email, password);
+      if (result.valid) {
+        return res.json({ success: true, admin: result.admin });
+      }
+      return res.status(401).json({ error: 'Invalid credentials' });
+    } catch (error) {
+      console.error('Admin login error:', error);
+      return res.status(500).json({ error: 'Login failed' });
     }
   });
 

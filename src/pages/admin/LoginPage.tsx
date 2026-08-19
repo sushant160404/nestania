@@ -17,21 +17,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     setError('');
     setLoading(true);
 
-    // Simple validation
     if (!email || !password) {
       setError('Please fill in all fields');
       setLoading(false);
       return;
     }
 
-    // Demo credentials - replace with real authentication
-    if (email === 'admin@nestania.com' && password === 'admin123') {
-      onLogin(email, password);
-    } else {
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          onLogin(email, password);
+          return;
+        }
+      }
+
       setError('Invalid email or password');
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   return (

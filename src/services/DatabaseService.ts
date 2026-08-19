@@ -14,6 +14,7 @@ export class DatabaseService {
   private newsletterCollection: Collection | null = null;
   private productsCollection: Collection | null = null;
   private wishlistCollection: Collection | null = null;
+  private adminUsersCollection: Collection | null = null;
 
   constructor() {
     this.initialize();
@@ -35,6 +36,7 @@ export class DatabaseService {
       this.newsletterCollection = this.db.collection('newsletter');
       this.productsCollection   = this.db.collection('products');
       this.wishlistCollection   = this.db.collection('wishlists');
+      this.adminUsersCollection = this.db.collection('adminUsers');
       await this.createIndexes();
       this.enabled = true;
       console.log('✅ MongoDB Atlas connected');
@@ -53,6 +55,7 @@ export class DatabaseService {
       await this.reviewsCollection?.createIndex({ productId: 1 });
       await this.newsletterCollection?.createIndex({ email: 1 }, { unique: true });
       await this.wishlistCollection?.createIndex({ userId: 1 }, { unique: true });
+      await this.adminUsersCollection?.createIndex({ email: 1 }, { unique: true });
     } catch (error) {
       console.warn('Index creation warning:', error);
     }
@@ -84,6 +87,10 @@ export class DatabaseService {
 
   async getNewsletterCount(): Promise<number> {
     try { this.checkEnabled(); return await this.newsletterCollection!.countDocuments(); } catch { return 0; }
+  }
+
+  async getAdminUsersCount(): Promise<number> {
+    try { this.checkEnabled(); return await this.adminUsersCollection!.countDocuments(); } catch { return 0; }
   }
 
   // ── ORDERS ────────────────────────────────────────────────────────────────
@@ -187,6 +194,29 @@ export class DatabaseService {
       { $set: { userId, products, updatedAt: new Date() } },
       { upsert: true }
     );
+  }
+
+  // ── ADMIN USERS ───────────────────────────────────────────────────────────
+
+  async createAdminUser(email: string, password: string, name: string): Promise<void> {
+    this.checkEnabled();
+    await this.adminUsersCollection!.insertOne({
+      email: email.toLowerCase(),
+      password, // In production, use bcrypt.hash(password, 10)
+      name,
+      createdAt: new Date(),
+    });
+  }
+
+  async validateAdminLogin(email: string, password: string): Promise<{ valid: boolean; admin?: { email: string; name: string } }> {
+    this.checkEnabled();
+    const doc = await this.adminUsersCollection!.findOne({ email: email.toLowerCase() });
+    if (!doc) return { valid: false };
+    // In production: use bcrypt.compare(password, doc.password)
+    if (doc.password === password) {
+      return { valid: true, admin: { email: doc.email, name: doc.name } };
+    }
+    return { valid: false };
   }
 
   // ── NEWSLETTER ────────────────────────────────────────────────────────────
