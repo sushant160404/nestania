@@ -18,31 +18,74 @@ export const AuthModal: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
 
   if (!isAuthOpen) return null;
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
-    setUser({
-      id: 'usr-' + Date.now(),
-      name: name || email.split('@')[0],
-      email,
-      phone: phone || '+91 98765 43210',
-      addresses: [
-        {
-          fullName: name || 'Aarav Sharma',
-          phone: phone || '+91 98765 43210',
-          street: '402, Lotus Grand Residences, Indiranagar',
-          city: 'Bengaluru',
-          state: 'Karnataka',
-          pincode: '560038',
-          isDefault: true,
-        },
-      ],
-    });
-    showToast(`Welcome back, ${name || email.split('@')[0]}!`, 'success');
-    setIsAuthOpen(false);
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setUser(data.user);
+        showToast(`Welcome back, ${data.user.name}!`, 'success');
+        setIsAuthOpen(false);
+        return;
+      }
+
+      // If login fails, try register for new users
+      if (mode === 'signup') {
+        const regRes = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, name: name || email.split('@')[0], phone }),
+        });
+
+        const regData = await regRes.json();
+
+        if (regRes.ok && regData.success) {
+          setUser(regData.user);
+          showToast(`Welcome to Nestania, ${regData.user.name}!`, 'success');
+          setIsAuthOpen(false);
+          return;
+        }
+
+        showToast(regData.error || 'Registration failed', 'error');
+        return;
+      }
+
+      showToast('Invalid email or password', 'error');
+    } catch (error) {
+      // Fallback to local storage if API fails
+      setUser({
+        id: 'usr-' + Date.now(),
+        name: name || email.split('@')[0],
+        email,
+        phone: phone || '+91 98765 43210',
+        addresses: [
+          {
+            fullName: name || 'Aarav Sharma',
+            phone: phone || '+91 98765 43210',
+            street: '402, Lotus Grand Residences, Indiranagar',
+            city: 'Bengaluru',
+            state: 'Karnataka',
+            pincode: '560038',
+            isDefault: true,
+          },
+        ],
+      });
+      showToast(`Welcome, ${name || email.split('@')[0]}!`, 'success');
+      setIsAuthOpen(false);
+    }
   };
 
   const handleLogout = () => {

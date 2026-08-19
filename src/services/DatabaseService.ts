@@ -160,6 +160,96 @@ export class DatabaseService {
     );
   }
 
+  async validateUserLogin(email: string, password: string): Promise<{ valid: boolean; user?: User }> {
+    try {
+      this.checkEnabled();
+      const doc = await this.usersCollection!.findOne({ email: email.toLowerCase() });
+      if (!doc) return { valid: false };
+      // In production: use bcrypt.compare(password, doc.password)
+      if ((doc as any).password === password) {
+        return { valid: true, user: this.parseUser(doc) };
+      }
+      return { valid: false };
+    } catch (error) {
+      return { valid: false };
+    }
+  }
+
+  async registerUser(email: string, password: string, name: string, phone?: string): Promise<User> {
+    this.checkEnabled();
+    const existingUser = await this.usersCollection!.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      throw new Error('Email already registered');
+    }
+
+    const userData = {
+      email: email.toLowerCase(),
+      password, // In production: use bcrypt.hash(password, 10)
+      name,
+      phone: phone || '',
+      addresses: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const result = await this.usersCollection!.insertOne(userData);
+    return {
+      id: result.insertedId.toString(),
+      email: userData.email,
+      name: userData.name,
+      phone: userData.phone,
+      addresses: userData.addresses,
+    };
+  }
+
+  async validateUserLogin(email: string, password: string): Promise<{ valid: boolean; user?: User }> {
+    try {
+      this.checkEnabled();
+      const doc = await this.usersCollection!.findOne({ email: email.toLowerCase() });
+      if (!doc) return { valid: false };
+      // In production: use bcrypt.compare(password, doc.password)
+      if (doc.password === password) {
+        return { valid: true, user: this.parseUser(doc) };
+      }
+      return { valid: false };
+    } catch (error) {
+      return { valid: false };
+    }
+  }
+
+  async registerUser(email: string, password: string, name: string, phone?: string): Promise<User> {
+    this.checkEnabled();
+    const existing = await this.getUserByEmail(email);
+    if (existing) throw new Error('Email already registered');
+
+    const userData = {
+      email: email.toLowerCase(),
+      password, // In production: bcrypt.hash(password, 10)
+      name,
+      phone: phone || '',
+      addresses: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const result = await this.usersCollection!.insertOne(userData);
+    return {
+      id: result.insertedId.toString(),
+      name,
+      email: email.toLowerCase(),
+      phone: phone || '',
+      addresses: [],
+    };
+  }
+
+  async updateUser(userId: string, userData: Partial<User>): Promise<void> {
+    this.checkEnabled();
+    await this.usersCollection!.updateOne(
+      { _id: new ObjectId(userId) },
+      { $set: { ...userData, updatedAt: new Date() } }
+    );
+  }
+
   // ── REVIEWS ───────────────────────────────────────────────────────────────
 
   async createReview(reviewData: Omit<Review, 'id'>): Promise<Review> {

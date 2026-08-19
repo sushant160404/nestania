@@ -197,6 +197,60 @@ async function startServer() {
     }
   });
 
+  // ── User Auth ─────────────────────────────────────────────────────────────
+
+  app.post('/api/auth/register', async (req: Request, res: Response) => {
+    const { email, password, name, phone } = req.body;
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'Email, password, and name required' });
+    }
+
+    try {
+      const user = await databaseService.registerUser(email, password, name, phone);
+      res.status(201).json({ success: true, user });
+    } catch (error: any) {
+      if (error.message === 'Email already registered') {
+        return res.status(409).json({ error: 'Email already registered' });
+      }
+      res.status(500).json({ error: 'Registration failed' });
+    }
+  });
+
+  app.post('/api/auth/login', async (req: Request, res: Response) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+
+    try {
+      const result = await databaseService.validateUserLogin(email, password);
+      if (result.valid && result.user) {
+        return res.json({ success: true, user: result.user });
+      }
+      return res.status(401).json({ error: 'Invalid credentials' });
+    } catch (error) {
+      return res.status(500).json({ error: 'Login failed' });
+    }
+  });
+
+  app.get('/api/users/:userId', async (req: Request, res: Response) => {
+    try {
+      const user = await databaseService.getUserById(req.params.userId);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch user' });
+    }
+  });
+
+  app.put('/api/users/:userId', async (req: Request, res: Response) => {
+    const { name, email, phone, addresses } = req.body;
+    try {
+      await databaseService.updateUser(req.params.userId, { name, email, phone, addresses });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update user' });
+    }
+  });
+
   app.post('/api/pincode/check', (req: Request, res: Response) => {
     const { pincode } = req.body;
     if (!pincode || String(pincode).length !== 6) {
