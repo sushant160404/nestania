@@ -29,11 +29,8 @@ export class DatabaseService {
 
   private async initialize() {
     try {
-      const uri = process.env.MONGODB_URI;
-      if (!uri) {
-        console.warn('⚠️  MONGODB_URI not found - using in-memory storage');
-        return;
-      }
+      const uri = "mongodb://ugcsetup_db_user:r9S5cHPUAgWF3MU9@ac-5r6zvl9-shard-00-00.riwhhcq.mongodb.net:27017,ac-5r6zvl9-shard-00-01.riwhhcq.mongodb.net:27017,ac-5r6zvl9-shard-00-02.riwhhcq.mongodb.net:27017/?ssl=true&replicaSet=atlas-relrff-shard-0&authSource=admin&appName=Cluster0";
+      
       this.client = new MongoClient(uri);
       await this.client.connect();
       this.db = this.client.db('nestania');
