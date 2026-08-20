@@ -24,11 +24,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     <div className="group relative bg-white rounded-2xl border border-[#ECE5DD] overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col isolate">
       
       {/* Product Image Container */}
-      <div className="relative aspect-square bg-[#F7F3EE] overflow-hidden">
+      <div className="relative aspect-square bg-[#F7F3EE] overflow-hidden group/image">
         <img
           src={product.image}
           alt={product.name}
-          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-106"
+          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover/image:scale-106"
           loading="lazy"
         />
 
@@ -68,7 +68,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </button>
 
         {/* Hover Quick Actions Overlay */}
-        <div className="absolute inset-x-3 bottom-3 flex items-center gap-2 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 z-10 pointer-events-none group-hover:pointer-events-auto">
+        <div className="absolute inset-x-3 bottom-3 flex items-center gap-2 opacity-0 translate-y-2 group-hover/image:opacity-100 group-hover/image:translate-y-0 transition-all duration-200 z-10 pointer-events-none group-hover/image:pointer-events-auto">
           <button
             onClick={() => setSelectedProduct(product)}
             className="flex-1 bg-white/95 hover:bg-white text-[#3D322B] text-xs font-semibold py-2.5 px-3 rounded-xl shadow-md backdrop-blur-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-[#E3DCCE]"
@@ -103,7 +103,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </div>
           </div>
 
-          <h3 className="font-normal text-sm sm:text-[15px] text-[#2D2723] group-hover:text-[#8A5A36] transition-colors line-clamp-2 leading-snug">
+          <h3 className="font-normal text-sm sm:text-[15px] text-[#2D2723] hover:text-[#8A5A36] transition-colors line-clamp-2 leading-snug cursor-pointer">
             {product.name}
           </h3>
         </div>
