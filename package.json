@@ -19,8 +19,6 @@
     "canvas-confetti": "^1.9.4",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
-    "firebase": "^12.17.1",
-    "firebase-admin": "^14.2.0",
     "lucide-react": "^0.546.0",
     "mongodb": "^7.5.0",
     "mongoose": "^9.9.3",
