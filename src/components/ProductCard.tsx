@@ -2,6 +2,7 @@ import React from 'react';
 import { Heart, ShoppingBag, Eye, Star } from 'lucide-react';
 import { Product } from '../types';
 import { useShop } from '../context/ShopContext';
+import { getProductImage, handleImageError } from '../utils/imageUtils';
 
 interface ProductCardProps {
   product: Product;
@@ -26,7 +27,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       {/* Product Image Container */}
       <div className="relative aspect-square bg-[#F7F3EE] overflow-hidden group/image">
         <img
-          src={product.image}
+          src={getProductImage(product.id, product.image)}
+          data-fallback={product.image}
+          onError={handleImageError}
           alt={product.name}
           className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover/image:scale-106"
           loading="lazy"

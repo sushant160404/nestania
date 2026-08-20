@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { CATEGORIES } from '../data/products';
 import { useShop } from '../context/ShopContext';
+import { getCategoryImage, handleImageError } from '../utils/imageUtils';
 
 export const CategorySlider: React.FC = () => {
   const { activeCategory, setActiveCategory, setSearchQuery } = useShop();
@@ -87,7 +88,9 @@ export const CategorySlider: React.FC = () => {
                   }`}
                 >
                   <img
-                    src={cat.image}
+                    src={getCategoryImage(cat.slug, cat.image)}
+                    data-fallback={cat.image}
+                    onError={handleImageError}
                     alt={cat.name}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-108"
                     loading="lazy"

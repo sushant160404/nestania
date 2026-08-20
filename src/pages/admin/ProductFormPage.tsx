@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, AlertCircle, Plus, X } from 'lucide-react';
 import { Product } from '../../types';
 
 const EMPTY_PRODUCT: Omit<Product, 'id'> = {
@@ -193,11 +193,195 @@ export const ProductFormPage: React.FC<Props> = ({ productId, onBack, onSaved })
           </div>
         </div>
 
-        {/* Image */}
-        <div>
-          <label className="block text-xs font-semibold text-[#7A6A5E] mb-1">Main Image URL</label>
-          <input type="text" value={form.image} onChange={e => handleChange('image', e.target.value)} className={inputCls} placeholder="https://images.unsplash.com/..." />
-          {form.image && <img src={form.image} alt="preview" className="mt-2 h-20 w-20 object-cover rounded-lg border border-[#E3DCCE]" />}
+        {/* Images - Compact UI */}
+        <div className="space-y-4">
+          {/* Featured Image */}
+          <div>
+            <h3 className="text-sm font-semibold text-[#2D2723] mb-3">Product Image</h3>
+            <div>
+              <label className="block text-xs text-[#7A6A5E] mb-2">Featured Image</label>
+              <div className="border border-[#E3DCCE] rounded-lg p-3 bg-[#FAFAFA] hover:bg-[#F5F2EC] transition-colors">
+                {form.image ? (
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <img
+                        src={form.image}
+                        alt="Featured product"
+                        className="w-12 h-12 object-cover rounded border border-[#E3DCCE]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleChange('image', '')}
+                        className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                      >
+                        <X className="w-2 h-2" />
+                      </button>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs text-[#7A6A5E] mb-2">Click to change image</p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('featured-image-input')?.click()}
+                          className="px-2 py-1 text-xs bg-[#8A5A36] text-white rounded hover:bg-[#7A4E2D] transition-colors"
+                        >
+                          📤 Upload
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const url = prompt('Enter image URL:');
+                            if (url) handleChange('image', url);
+                          }}
+                          className="px-2 py-1 text-xs bg-white text-[#8A5A36] border border-[#8A5A36] rounded hover:bg-[#FAF8F5] transition-colors"
+                        >
+                          🌐 URL
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 cursor-pointer" onClick={() => document.getElementById('featured-image-input')?.click()}>
+                    <div className="w-12 h-12 bg-[#E3DCCE] rounded flex items-center justify-center">
+                      <div className="w-4 h-4 text-[#8A5A36]">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs text-[#7A6A5E] mb-2">Add featured image</p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="px-2 py-1 text-xs bg-[#8A5A36] text-white rounded hover:bg-[#7A4E2D] transition-colors"
+                        >
+                          📤 Upload
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const url = prompt('Enter image URL:');
+                            if (url) handleChange('image', url);
+                          }}
+                          className="px-2 py-1 text-xs bg-white text-[#8A5A36] border border-[#8A5A36] rounded hover:bg-[#FAF8F5] transition-colors"
+                        >
+                          🌐 URL
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <input
+                  id="featured-image-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      try {
+                        const response = await fetch('/api/admin/upload', {
+                          method: 'POST',
+                          body: formData,
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                          handleChange('image', result.url);
+                        }
+                      } catch (error) {
+                        setError('Upload failed');
+                      }
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Product Gallery */}
+          <div>
+            <h3 className="text-sm font-semibold text-[#2D2723] mb-3">Product Gallery</h3>
+            <div className="grid grid-cols-6 gap-2">
+              {[...Array(6)].map((_, idx) => {
+                const hasImage = form.galleryImages[idx];
+                return (
+                  <div key={idx}>
+                    <label className="block text-xs text-[#7A6A5E] mb-1">Gallery Image {idx + 1}</label>
+                    <div className="w-16 h-16 border border-[#E3DCCE] rounded bg-[#FAFAFA] hover:bg-[#F5F2EC] transition-colors relative overflow-hidden">
+                      {hasImage ? (
+                        <div className="w-full h-full relative group">
+                          <img
+                            src={hasImage}
+                            alt={`Gallery ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newImages = [...form.galleryImages];
+                              newImages[idx] = '';
+                              handleChange('galleryImages', newImages.filter(Boolean));
+                            }}
+                            className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            <X className="w-2 h-2" />
+                          </button>
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() => document.getElementById(`gallery-${idx}-input`)?.click()}
+                              className="text-xs text-white hover:underline"
+                            >
+                              Change
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center cursor-pointer" onClick={() => document.getElementById(`gallery-${idx}-input`)?.click()}>
+                          <div className="w-3 h-3 text-[#8A5A36]">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                      <input
+                        id={`gallery-${idx}-input`}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            try {
+                              const response = await fetch('/api/admin/upload', {
+                                method: 'POST',
+                                body: formData,
+                              });
+                              const result = await response.json();
+                              if (result.success) {
+                                const newImages = [...form.galleryImages];
+                                newImages[idx] = result.url;
+                                handleChange('galleryImages', newImages);
+                              }
+                            } catch (error) {
+                              setError('Upload failed');
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Description */}

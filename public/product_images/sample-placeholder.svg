@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="400" fill="#F7F3EE"/>
+  <circle cx="200" cy="160" r="60" fill="#8A5A36" opacity="0.3"/>
+  <rect x="120" y="240" width="160" height="80" rx="8" fill="#8A5A36" opacity="0.2"/>
+  <text x="200" y="350" text-anchor="middle" font-family="serif" font-size="18" fill="#2D2723">Local Product Image</text>
+  <text x="200" y="370" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#8A796E">Drop your JPG here</text>
+</svg>

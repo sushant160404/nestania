@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Heart, ShoppingBag, Star, Truck, ShieldCheck, RefreshCw, Check, MapPin, Sparkles, MessageSquare } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
 import { Review } from '../types';
+import { resolveGalleryImages, getProductImage, handleImageError } from '../utils/imageUtils';
 
 export const ProductModal: React.FC = () => {
   const {
@@ -47,9 +48,10 @@ export const ProductModal: React.FC = () => {
   if (!selectedProduct) return null;
 
   const isFavorite = isInWishlist(selectedProduct.id);
-  const allImages = selectedProduct.galleryImages && selectedProduct.galleryImages.length > 0
+  const rawImages = selectedProduct.galleryImages && selectedProduct.galleryImages.length > 0
     ? selectedProduct.galleryImages
     : [selectedProduct.image];
+  const allImages = resolveGalleryImages(selectedProduct.id, rawImages);
 
   const handleCheckPincode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,7 +138,9 @@ export const ProductModal: React.FC = () => {
           <div className="flex flex-col gap-4">
             <div className="relative aspect-square rounded-2xl overflow-hidden bg-[#F7F3EE] border border-[#EBE3D7]">
               <img
-                src={allImages[activeImageIndex] || selectedProduct.image}
+                src={allImages[activeImageIndex] || getProductImage(selectedProduct.id, selectedProduct.image)}
+                data-fallback={selectedProduct.image}
+                onError={handleImageError}
                 alt={selectedProduct.name}
                 className="w-full h-full object-cover transition-all duration-300"
               />

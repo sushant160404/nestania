@@ -2,12 +2,15 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
+import multer from 'multer';
+import fs from 'fs';
 
 dotenv.config();
 
 import { PRODUCTS, CATEGORIES, COUPONS } from './src/data/products.ts';
 import { Order, Review, Product } from './src/types.ts';
 import { databaseService } from './src/services/DatabaseService.ts';
+import { autoRegisterImages } from './src/utils/adminImageUtils.ts';
 
 // ── Seed function ─────────────────────────────────────────────────────────────
 async function seedDatabase() {
@@ -25,6 +28,41 @@ async function seedDatabase() {
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+
+  // Ensure product_images directory exists
+  const uploadDir = path.join(process.cwd(), 'public', 'product_images');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  // Configure multer for file uploads
+  const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const timestamp = Date.now();
+      const ext = path.extname(file.originalname);
+      const basename = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9-]/g, '-');
+      cb(null, `${basename}-${timestamp}${ext}`);
+    }
+  });
+
+  const upload = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = /jpeg|jpg|png|gif|webp/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype);
+      
+      if (mimetype && extname) {
+        return cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed'));
+      }
+    }
+  });
 
   app.use(express.json());
 
@@ -443,6 +481,10 @@ async function startServer() {
     if (PRODUCTS.find(p => p.id === product.id)) {
       return res.status(409).json({ error: 'Product with this ID already exists' });
     }
+    
+    // Auto-register local images
+    autoRegisterImages(product.id, product.image, product.galleryImages);
+    
     PRODUCTS.push(product);
     res.status(201).json(product);
   });
@@ -450,7 +492,13 @@ async function startServer() {
   app.put('/api/admin/products/:id', (req: Request, res: Response) => {
     const idx = PRODUCTS.findIndex(p => p.id === req.params.id);
     if (idx === -1) return res.status(404).json({ error: 'Product not found' });
-    PRODUCTS[idx] = { ...PRODUCTS[idx], ...req.body, id: req.params.id };
+    
+    const updatedProduct = { ...PRODUCTS[idx], ...req.body, id: req.params.id };
+    
+    // Auto-register local images
+    autoRegisterImages(updatedProduct.id, updatedProduct.image, updatedProduct.galleryImages);
+    
+    PRODUCTS[idx] = updatedProduct;
     res.json(PRODUCTS[idx]);
   });
 
@@ -459,6 +507,30 @@ async function startServer() {
     if (idx === -1) return res.status(404).json({ error: 'Product not found' });
     PRODUCTS.splice(idx, 1);
     res.json({ success: true });
+  });
+
+  // ── Admin File Upload ─────────────────────────────────────────────────────
+  app.post('/api/admin/upload', upload.single('file'), (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      // Return the local path for use in the app
+      const localPath = `/product_images/${req.file.filename}`;
+      
+      res.json({
+        success: true,
+        url: localPath,
+        path: localPath,
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        size: req.file.size
+      });
+    } catch (error) {
+      console.error('Upload error:', error);
+      res.status(500).json({ error: 'Upload failed' });
+    }
   });
 
   // ── Vite / Static ─────────────────────────────────────────────────────────
